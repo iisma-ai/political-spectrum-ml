@@ -1,0 +1,10 @@
+ipykernel
+matplotlib
+nbclient
+nbformat
+numpy
+pandas
+pyarrow
+pytest
+scikit-learn
+scipy
