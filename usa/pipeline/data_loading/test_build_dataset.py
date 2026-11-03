@@ -105,13 +105,17 @@ def test_absent_is_missing_not_nay():
 def test_vote_matrix_applies_filters(monkeypatch):
     members = clean_members(raw_members())
     votes = clean_votes(raw_votes(), members)
-    rollcalls = pd.DataFrame({"congress": [100, 100], "chamber": ["House", "House"], "rollnumber": [1, 2], "is_lopsided": [False, True]})
+    rollcalls = pd.DataFrame(
+        {"congress": [100, 100], "chamber": ["House", "House"], "rollnumber": [1, 2], "minority_share": [0.5, 0.01]}
+    )
     monkeypatch.setattr(voteview, "load_members", lambda: members)
     monkeypatch.setattr(voteview, "load_rollcalls", lambda: rollcalls)
     monkeypatch.setattr(voteview, "load_votes", lambda congress, chamber: votes)
     matrix = voteview.vote_matrix(100, "House", min_votes=1)
     assert list(matrix.columns) == [1]
     assert set(matrix.index) == {1, 2}
+    everything = voteview.vote_matrix(100, "House", min_votes=1, min_minority_share=0, include_delegates=True)
+    assert set(everything.index) == {1, 2, 3}
 
 
 def test_session_year():

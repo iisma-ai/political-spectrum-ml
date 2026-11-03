@@ -6,7 +6,7 @@ A comparative study of how votes can be explained and how the political spectrum
 
 | Entity | Status | Conclusions |
 |---|---|---|
-| USA | Data foundation and party gap baseline done, clustering next | [usa/README.md](usa/README.md) |
+| USA | Data foundation and clustering done, explanation next | [usa/README.md](usa/README.md) |
 
 ## How the repo is organised
 

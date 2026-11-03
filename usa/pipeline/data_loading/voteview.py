@@ -4,7 +4,11 @@ from pathlib import Path
 
 import pandas as pd
 
+from build_dataset import LOPSIDED_SHARE
+
 PROCESSED_DIR = Path(__file__).parent / "data" / "processed"
+# One threshold for both: rollcalls.is_lopsided and the default matrix filter.
+DEFAULT_MINORITY_SHARE = LOPSIDED_SHARE
 
 
 def load_members() -> pd.DataFrame:
@@ -30,25 +34,35 @@ def pivot_votes(votes: pd.DataFrame) -> pd.DataFrame:
     return positions.pivot(index="icpsr", columns="rollnumber", values="vote").astype("float32")
 
 
-def vote_matrix(
-    congress: int,
-    chamber: str,
-    include_lopsided: bool = False,
+def build_matrix(
+    votes: pd.DataFrame,
+    rollcalls: pd.DataFrame,
+    members: pd.DataFrame,
+    min_minority_share: float = DEFAULT_MINORITY_SHARE,
     include_delegates: bool = False,
     min_votes: int = 20,
 ) -> pd.DataFrame:
-    """Build the member-by-vote matrix for one Congress and chamber."""
-    votes = load_votes(congress, chamber)
-    rollcalls = load_rollcalls()
-    selected = rollcalls[(rollcalls["congress"] == congress) & (rollcalls["chamber"] == chamber)]
-    if not include_lopsided:
-        selected = selected[~selected["is_lopsided"]]
+    """Build the member-by-vote matrix from tables already limited to one Congress and chamber.
+
+    Roll calls whose smaller side is below min_minority_share are dropped; 0 keeps every roll call.
+    """
+    selected = rollcalls
+    if min_minority_share > 0:
+        selected = selected[selected["minority_share"] >= min_minority_share]
     votes = votes[votes["rollnumber"].isin(selected["rollnumber"])]
     if not include_delegates:
-        members = load_members()
-        delegates = members[
-            (members["congress"] == congress) & (members["chamber"] == chamber) & members["is_delegate"]
-        ]
-        votes = votes[~votes["icpsr"].isin(delegates["icpsr"])]
+        votes = votes[~votes["icpsr"].isin(members.loc[members["is_delegate"], "icpsr"])]
     matrix = pivot_votes(votes)
     return matrix[matrix.notna().sum(axis=1) >= min_votes]
+
+
+def vote_matrix(congress: int, chamber: str, **options) -> pd.DataFrame:
+    """Build the member-by-vote matrix for one Congress and chamber. Options go to build_matrix."""
+    rollcalls = load_rollcalls()
+    members = load_members()
+    return build_matrix(
+        load_votes(congress, chamber),
+        rollcalls[(rollcalls["congress"] == congress) & (rollcalls["chamber"] == chamber)],
+        members[(members["congress"] == congress) & (members["chamber"] == chamber)],
+        **options,
+    )

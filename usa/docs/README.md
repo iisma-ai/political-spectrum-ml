@@ -11,6 +11,7 @@
 | 2026-11-02 | Study issues, factions and replacement versus conversion, not only party totals | Two-party clustering of recent Congresses is likely to be close to trivial |
 | 2026-11-02 | Use several measures of separation, never DW-NOMINATE alone | Measures disagree on whether the earlier peak has been passed, and DW-NOMINATE can't show sitting members changing |
 | 2026-11-02 | Follow people by Bioguide ID | Party switchers get a new ICPSR |
+| 2026-11-03 | Use network modularity with nulls and HDBSCAN for structure; don't use BIC mixtures to count groups | Step 2 showed mixtures split parties into subgroups whose number reflects cluster shape |
 
 ## How this entity differs
 
@@ -19,8 +20,8 @@ Two dominant parties, two chambers, and a long continuous roll-call record. Sepa
 ## Roadmap
 
 1. **Foundation (done 2026-11-02):** download Voteview, build the member-by-vote matrices, reproduce the party gap, and check it against DW-NOMINATE.
-2. **Clustering (next):** agreement, modularity and embeddings per Congress, then time-aware communities and the replacement versus conversion split.
-3. **Explanation:** add topics and member covariates, then polarization by issue and defection modelling.
+2. **Clustering (done 2026-11-03):** agreement, modularity and embeddings per Congress, then time-aware communities and the replacement versus conversion split.
+3. **Explanation (next):** add topics and member covariates, then polarization by issue and defection modelling.
 4. **Prediction:** logistic baseline, gradient boosting, GRU or LSTM, then a graph network if justified. Add bill text last.
 5. **Other entities:** European Parliament first, using the same pipeline.
 

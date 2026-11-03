@@ -23,7 +23,13 @@ Calculate per Congress, by chamber and issue:
 
 Compare periods with multi-Congress averages, and test each result at cutoffs of 0%, 2.5% and 10%.
 
-Separate **replacement** (new members differ from those who left) from **conversion** (the same members change). Link people by Bioguide ID, so party switchers count as conversion. [Snyder's work](https://politicalscience.yale.edu/node/15160) discusses within-member drift.
+Separate **replacement** (new members differ from those who left) from **conversion** (the same members change), with party **switching** as a third part. Link people by Bioguide ID, so a switcher's new ICPSR doesn't make them look like a new member. Measure arrivals and departures from the party's earlier mean, so the split doesn't depend on the scale's zero.
+
+Lessons from step 2:
+
+- Louvain on complete agreement graphs tends to produce two communities, so check party alignment and resolution rather than the count.
+- Gaussian mixtures chosen by BIC split parties into pure subgroups and shouldn't be used to count blocs.
+- Adjust modularity for seat shares before comparing Congresses. [Snyder's work](https://politicalscience.yale.edu/node/15160) discusses within-member drift.
 
 Embeddings fitted separately per Congress don't share a scale. Use time-aware methods, align through members who serve in both Congresses, or use Nokken-Poole scores.
 

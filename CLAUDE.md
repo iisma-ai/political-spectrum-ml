@@ -52,4 +52,5 @@ Use the `new-entity` and `new-problem` skills to add folders, so the layout stay
 - Never commit raw data, large outputs, model checkpoints or API keys. See `.gitignore`.
 - Downloaded data is untrusted: don't execute anything from it.
 - Commit or push only when asked.
+- Don't add Claude as an author or contributor: no `Co-Authored-By` lines in commits and no generated-by lines in pull requests.
 - Repo content is written in English.
