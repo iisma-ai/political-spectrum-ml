@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 
 import voteview
-from build_dataset import CAST_TO_VOTE, clean_members, clean_rollcalls, clean_votes
+from build_dataset import CAST_TO_VOTE, clean_members, clean_rollcalls, clean_topics, clean_votes, vote_type
 from validate import session_year
 from voteview import pivot_votes
 
@@ -116,6 +116,47 @@ def test_vote_matrix_applies_filters(monkeypatch):
     assert set(matrix.index) == {1, 2}
     everything = voteview.vote_matrix(100, "House", min_votes=1, min_minority_share=0, include_delegates=True)
     assert set(everything.index) == {1, 2, 3}
+
+
+@pytest.mark.parametrize(
+    "question, expected",
+    [
+        ("On the Cloture Motion", "cloture"),
+        ("On Motion to Suspend the Rules and Pass, as Amended", "suspension"),
+        ("On Motion to Recommit with Instructions", "procedural"),
+        ("On Ordering the Previous Question", "procedural"),
+        ("On the Motion to Table", "procedural"),
+        ("On Passage of the Bill", "passage"),
+        ("On Agreeing to the Amendment", "amendment"),
+        ("On the Nomination", "nomination"),
+        ("On Overriding the Veto", "veto override"),
+        ("On Agreeing to the Conference Report", "conference report"),
+        ("On Agreeing to the Resolution", "resolution"),
+        ("Guilty or Not Guilty", "other"),
+        ("On Passage, Objections of the President to the Contrary Notwithstanding", "veto override"),
+        ("On Motion to Suspend the Rules and Agree to the Conference Report", "suspension"),
+        ("On Motion to Recommit the Conference Report", "procedural"),
+        ("On Motion to Table the Veto Message", "procedural"),
+        ("On the Motion to Table the Amendment", "procedural"),
+        (None, None),
+        ("", None),
+    ],
+)
+def test_vote_type(question, expected):
+    assert vote_type(question) == expected
+
+
+def test_clean_topics_keeps_first_code_and_joins_text():
+    records = [
+        {"congress": 100, "chamber": "House", "rollnumber": 1, "clausen_codes": ["Social Welfare", "Agriculture"],
+         "peltzman_codes": [], "vote_desc": "Short title", "dtl_desc": "LONG DESCRIPTION", "vote_question": "On Passage"},
+        {"congress": 100, "chamber": "President", "rollnumber": 1},
+    ]
+    topics = clean_topics(records)
+    assert len(topics) == 1
+    row = topics.iloc[0]
+    assert row["clausen"] == "Social Welfare" and row["peltzman"] is None
+    assert row["text"] == "Short title LONG DESCRIPTION" and row["vote_type"] == "passage"
 
 
 def test_session_year():

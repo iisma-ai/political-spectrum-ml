@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 import pandas as pd
 
 from build_dataset import RAW_DIR
-from voteview import load_members, load_rollcalls, load_votes
+from voteview import load_members, load_rollcalls, load_topics, load_votes
 
 ROLLCALL_KEYS = ["congress", "chamber", "rollnumber"]
 OFFICIAL_YEA = {"Yea", "Aye"}
@@ -34,6 +34,11 @@ def check_tables(members, rollcalls, votes, failures) -> None:
     presidents = set(presidents.loc[presidents["chamber"] == "President", "icpsr"])
     non_presidents = (~dropped["icpsr"].isin(presidents)).sum()
     report("only presidents' rows were dropped", non_presidents == 0, f"{len(dropped):,} dropped, {non_presidents} non-presidents", failures)
+
+    topics = load_topics()
+    joined = rollcalls[ROLLCALL_KEYS].merge(topics[ROLLCALL_KEYS], on=ROLLCALL_KEYS, how="outer", indicator=True)
+    unmatched = (joined["_merge"] != "both").sum() + topics.duplicated(ROLLCALL_KEYS).sum()
+    report("topics match roll calls one to one", unmatched == 0, f"{len(topics):,} topic rows, {unmatched} unmatched or duplicated", failures)
 
     missing = len(votes) - len(votes.merge(rollcalls[ROLLCALL_KEYS], on=ROLLCALL_KEYS))
     report("every vote has a roll call", missing == 0, f"{missing} orphans", failures)

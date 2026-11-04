@@ -26,6 +26,7 @@ All four files were downloaded on 2026-11-02, with data through 2026-09-30. `dow
   - `issue_codes`, `crs_policy_area`, `clausen_codes` and `peltzman_codes` are [JSON only](https://voteview.com/articles/data_help_rollcalls).
 - `https://voteview.com/static/data/out/members/HSall_members.csv`, which also holds DW-NOMINATE and Nokken-Poole scores
 - `https://voteview.com/static/data/out/parties/HSall_parties.csv`, with published party means used for validation
+- `https://voteview.com/static/data/out/rollcalls/HSall_rollcalls.json` (178 MB), the only export with topic codes. Clausen and Peltzman codes are complete through the Congress beginning in 2013 and absent from 2015 on. See the data loading docs for coverage.
 
 [Vote codes](https://voteview.com/articles/data_help_votes):
 

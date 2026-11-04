@@ -1,5 +1,6 @@
-"""Clean the raw Voteview CSVs into the parquet tables every problem uses."""
+"""Clean the raw Voteview files into the parquet tables every problem uses."""
 
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -15,6 +16,66 @@ TERRITORIES = {"AS", "DC", "GU", "MP", "PR", "VI"}
 LOPSIDED_SHARE = 0.025
 
 VOTE_DTYPES = {"congress": "int16", "rollnumber": "int32", "icpsr": "int32", "cast_code": "int8"}
+
+# Checked in order, so the phrase that decides the vote's type comes first: "suspend the rules and agree to the
+# conference report" is a suspension, "motion to table the veto message" is procedural, and the House's veto
+# override question ("on passage, objections of the president to the contrary notwithstanding") isn't passage.
+VOTE_TYPES = [
+    ("cloture", "cloture"),
+    ("nomination", "nomination"),
+    ("suspend", "suspension"),
+    ("recommit", "procedural"),
+    ("table", "procedural"),
+    ("objections of the president", "veto override"),
+    ("veto", "veto override"),
+    ("conference", "conference report"),
+    ("previous question", "procedural"),
+    ("journal", "procedural"),
+    ("adjourn", "procedural"),
+    ("quorum", "procedural"),
+    ("passage", "passage"),
+    ("passed", "passage"),
+    ("amendment", "amendment"),
+    ("motion", "procedural"),
+    ("resolution", "resolution"),
+    ("bill", "passage"),
+]
+
+
+def vote_type(question) -> str | None:
+    """Group Voteview's vote_question into broad types; None when there is no question text."""
+    if not isinstance(question, str) or not question.strip():
+        return None
+    text = question.lower()
+    for phrase, label in VOTE_TYPES:
+        if phrase in text:
+            return label
+    return "other"
+
+
+def first_code(codes):
+    return codes[0] if codes else None
+
+
+def clean_topics(records: list[dict]) -> pd.DataFrame:
+    """Topic codes, vote type and description text for each roll call, from the Voteview JSON export."""
+    topics = pd.DataFrame([
+        {
+            "congress": record["congress"],
+            "chamber": record["chamber"],
+            "rollnumber": record["rollnumber"],
+            "clausen": first_code(record.get("clausen_codes")),
+            "peltzman": first_code(record.get("peltzman_codes")),
+            "issue": first_code(record.get("issue_codes")),
+            "crs_policy_area": record.get("crs_policy_area"),
+            "vote_question": record.get("vote_question"),
+            "text": " ".join(part for part in (record.get("vote_desc"), record.get("dtl_desc")) if part).strip(),
+        }
+        for record in records
+        if record.get("chamber") != "President"
+    ])
+    topics["vote_type"] = topics["vote_question"].map(vote_type)
+    return topics
 
 
 def clean_members(raw: pd.DataFrame) -> pd.DataFrame:
@@ -72,10 +133,14 @@ def main() -> None:
     votes = clean_votes(raw_votes, members)
     rollcalls = clean_rollcalls(raw_rollcalls, votes, members)
 
+    with open(RAW_DIR / "HSall_rollcalls.json", encoding="utf-8") as handle:
+        topics = clean_topics(json.load(handle))
+
     members.to_parquet(PROCESSED_DIR / "members.parquet", index=False)
     rollcalls.to_parquet(PROCESSED_DIR / "rollcalls.parquet", index=False)
     votes.to_parquet(PROCESSED_DIR / "votes.parquet", index=False)
-    print(f"members {len(members):,}  rollcalls {len(rollcalls):,}  votes {len(votes):,}")
+    topics.to_parquet(PROCESSED_DIR / "topics.parquet", index=False)
+    print(f"members {len(members):,}  rollcalls {len(rollcalls):,}  votes {len(votes):,}  topics {len(topics):,}")
 
 
 if __name__ == "__main__":

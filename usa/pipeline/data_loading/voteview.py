@@ -19,6 +19,10 @@ def load_rollcalls() -> pd.DataFrame:
     return pd.read_parquet(PROCESSED_DIR / "rollcalls.parquet")
 
 
+def load_topics() -> pd.DataFrame:
+    return pd.read_parquet(PROCESSED_DIR / "topics.parquet")
+
+
 def load_votes(congress: int | None = None, chamber: str | None = None) -> pd.DataFrame:
     filters = []
     if congress is not None:

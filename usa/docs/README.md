@@ -21,8 +21,8 @@ Two dominant parties, two chambers, and a long continuous roll-call record. Sepa
 
 1. **Foundation (done 2026-11-02):** download Voteview, build the member-by-vote matrices, reproduce the party gap, and check it against DW-NOMINATE.
 2. **Clustering (done 2026-11-03):** agreement, modularity and embeddings per Congress, then time-aware communities and the replacement versus conversion split.
-3. **Explanation (next):** add topics and member covariates, then polarization by issue and defection modelling.
-4. **Prediction:** logistic baseline, gradient boosting, GRU or LSTM, then a graph network if justified. Add bill text last.
+3. **Explanation (done 2026-11-04):** add topics and member covariates, then polarization by issue and defection modelling.
+4. **Prediction (next):** logistic baseline, gradient boosting, GRU or LSTM, then a graph network if justified. Add bill text last.
 5. **Other entities:** European Parliament first, using the same pipeline.
 
 ## Documentation

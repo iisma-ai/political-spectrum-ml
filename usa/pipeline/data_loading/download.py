@@ -12,6 +12,8 @@ FILES = {
     "HSall_members.csv": f"{BASE_URL}/members/HSall_members.csv",
     "HSall_parties.csv": f"{BASE_URL}/parties/HSall_parties.csv",
     "HSall_rollcalls.csv": f"{BASE_URL}/rollcalls/HSall_rollcalls.csv",
+    # The JSON export is the only one with topic codes (Clausen, Peltzman, issue codes, CRS policy area).
+    "HSall_rollcalls.json": f"{BASE_URL}/rollcalls/HSall_rollcalls.json",
     "HSall_votes.csv": f"{BASE_URL}/votes/HSall_votes.csv",
 }
 RAW_DIR = Path(__file__).parent / "data" / "raw"
