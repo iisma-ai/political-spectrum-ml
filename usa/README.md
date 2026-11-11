@@ -2,7 +2,7 @@
 
 The most important conclusions of the analysis so far. Decisions are in [docs/README.md](docs/README.md).
 
-Last updated: 2026-11-04
+Last updated: 2026-11-11
 
 Scope so far: party and member-level analysis from 1857 to September 2026, using Voteview. The 119th Congress is unfinished and excluded from comparisons.
 
@@ -26,6 +26,29 @@ Scope so far: party and member-level analysis from 1857 to September 2026, using
   - Southern Democrats now rarely defect. Northeastern House Republicans still defect more than any other group (12.9% of party-opposed votes in the 2020s).
 - **Defection persists within members.** Their previous Congress's defection rate predicts later defection better than region, tenure or topic, and a full model improves on it only a little (AUC 0.707 against 0.697). Majority party members and freshmen defect slightly less. Tenure and age show no meaningful association.
 
+### Predicting votes
+
+Test years 2015 to 2024, models trained on 1991 to 2010. Every model is given how both parties actually voted, so these predict who breaks from a known party line, not how a roll call turns out.
+
+- **The party line is hard to beat on accuracy.** Everyone voting with their party is right on 93.6% of votes (95.3% on party-opposed roll calls). The best single model, a GRU over each member's vote sequence, reaches 94.1% to 94.2% (95.5% to 95.6%) ([notebook 01](pipeline/vote_prediction/notebooks/01_model_comparison.ipynb)).
+- **On ranking who defects, each richer model adds a little over all votes together.** Defection AUC and average precision, where no information gives 0.064:
+  - the member's own past rate: 0.773 and 0.270;
+  - logistic regression: 0.831 and 0.362;
+  - gradient boosting: 0.850 and 0.379;
+  - GRU, single seeds: 0.854 to 0.858 and 0.401 to 0.409.
+
+  Each step is larger than chance in a bootstrap over roll calls and members. The steps differ by kind of roll call:
+  - on party-opposed roll calls, the GRU's AUC gain over boosting is marginal;
+  - where the parties agree, boosting doesn't beat logistic regression.
+- **The GRU's gain is clearest in the Senate** (average precision 0.46 to 0.49 against 0.41 for boosting), especially on nominations. In the House it comes mainly from amendments, and it is worse than boosting on procedural votes and resolutions. Neither model was tuned beyond when to stop.
+- **The GRU stays close to calibrated on later years,** though defection fell from 11.7% in training years to 6.4% (shown for seed 0). Boosting over-predicts modestly at low risk; logistic regression roughly doubles it.
+- **"Defection" covers two behaviours** ([notebook 02](pipeline/vote_prediction/notebooks/02_member_states.ipynb)):
+  - on party-opposed roll calls, 71% to 83% of defections come from the half of the party nearer the other party;
+  - on roll calls where the parties agree, 64% to 82% come from the outer half, members voting against bipartisan majorities;
+  - this uses previous-Congress Nokken-Poole, which is partly built from those same kinds of votes.
+- **Frequent defection since 2021 is mostly Republican:** 10 of the 12 most frequent House defectors and all 12 in the Senate. Some, like Graham, defect mainly on nominations and cloture rather than across the board.
+- The GRU's learned propensity tracks earlier Nokken-Poole positions (within-party rank correlation 0.59 to 0.81), but both come from the same earlier votes, so this is a description, not a validation.
+
 ## How to read these
 
 - They describe voting behaviour on votes that reached the floor, not beliefs. Leaders' agenda control affects which votes those are.
@@ -41,6 +64,8 @@ Scope so far: party and member-level analysis from 1857 to September 2026, using
 - How much of the pre-1969 narrowing reflects a changing agenda rather than members changing.
 - Whether Southern Democrats were a stable third bloc or a spread within the party. The answer depends on Louvain's resolution, and only key Congresses were tested at higher resolutions.
 - How much district partisanship and electoral margins explain defection. These aren't in Voteview yet.
+- Whether a tuned gradient boosting model would match the GRU, and why the 115th House (2017 to 2018) is hard for every model.
+- Whether the prediction results hold at other near-unanimous cutoffs. The cutoff is computed from the final vote, so it decides which roll calls where the parties agree are kept.
 
 ## Conclusions by problem
 
@@ -48,4 +73,4 @@ Scope so far: party and member-level analysis from 1857 to September 2026, using
 |---|---|---|
 | [polarization_clustering](pipeline/polarization_clustering/docs/README.md) | Steps 1 and 2 done | Convergence peaked about 1969 through a Southern Democratic and Republican middle; separation since then came mainly from replacement |
 | [vote_explanation](pipeline/vote_explanation/docs/README.md) | Step 3 done | Division grew within topics rather than through the topic mix; defection is regional and persists within members |
-| [vote_prediction](pipeline/vote_prediction/docs/README.md) | Not started | None yet |
+| [vote_prediction](pipeline/vote_prediction/docs/README.md) | Step 4 done (graph network and bill text deferred) | A GRU over each member's votes ranks defections best (AUC 0.854 to 0.858), modestly ahead of boosting; accuracy barely beats the party line |
