@@ -33,23 +33,37 @@ def test_prior_rate_uses_only_earlier_rows():
     assert windowed[3] == pytest.approx(0.5) and windowed[4] == 1.0
 
 
-def test_build_rows_history_is_causal_and_drops_lopsided_votes():
+def test_cohesion_is_the_same_for_everyone_in_a_party():
+    votes = pd.DataFrame({
+        "congress": 110, "chamber": "House", "rollnumber": 1, "icpsr": range(1, 8),
+        "party": ["D"] * 4 + ["R"] * 3, "vote": [1, 1, 1, -1, -1, -1, 1],
+    })
+    frame = party_positions(votes)
+    assert frame.groupby("party")["own_cohesion"].nunique().eq(1).all()
+    assert frame.loc[frame["party"] == "D", "own_cohesion"].iloc[0] == pytest.approx(0.5)
+
+
+def test_build_rows_history_is_causal_and_drops_lopsided_votes_and_close_party_splits():
     members = pd.DataFrame({
-        "congress": 110, "chamber": "House", "icpsr": [1, 2, 3, 4, 5, 6], "bioguide_id": list("abcdef"),
-        "bioname": list("ABCDEF"), "party": ["D"] * 3 + ["R"] * 3, "state_abbrev": ["TX", "NY", "CA", "OH", "ME", "TX"],
-        "born": 1950, "nominate_dim1": [-0.3] * 3 + [0.4] * 3, "is_delegate": False,
+        "congress": 110, "chamber": "House", "icpsr": range(1, 9), "bioguide_id": list("abcdefgh"),
+        "bioname": list("ABCDEFGH"), "party": ["D"] * 5 + ["R"] * 3, "state_abbrev": ["TX", "NY", "CA", "IL", "MA", "OH", "ME", "TX"],
+        "born": 1950, "nominate_dim1": [-0.3] * 5 + [0.4] * 3, "is_delegate": False,
     })
     rollcalls = pd.DataFrame({
-        "congress": 110, "chamber": "House", "rollnumber": [1, 2, 3, 4],
-        "date": pd.to_datetime(["2007-01-02", "2007-01-02", "2007-01-03", "2007-01-04"]), "is_lopsided": [False, False, True, False],
+        "congress": 110, "chamber": "House", "rollnumber": [1, 2, 3, 4, 5],
+        "date": pd.to_datetime(["2007-01-02", "2007-01-02", "2007-01-03", "2007-01-04", "2007-01-05"]),
+        "is_lopsided": [False, False, True, False, False],
     })
-    topics = rollcalls[["congress", "chamber", "rollnumber"]].assign(vote_type=["passage", "procedural", "passage", "passage"])
-    # Member 1 defects on roll calls 1 and 4; roll call 3 is near-unanimous and dropped.
-    vote = {1: [1, -1, -1, -1, -1, -1], 2: [1, 1, 1, -1, -1, -1], 3: [1] * 6, 4: [-1, 1, 1, -1, -1, -1]}
+    topics = rollcalls[["congress", "chamber", "rollnumber"]].assign(vote_type=["passage", "procedural", "passage", "passage", "passage"])
+    # Member 1 defects on roll calls 1 and 4; roll call 3 is near-unanimous and dropped. On roll call 5 the
+    # Democrats split 3 to 2, so their votes are dropped whichever way member 1 voted; Republicans are kept.
+    vote = {1: [1, -1, -1, -1, -1, -1, -1, -1], 2: [1, 1, 1, 1, 1, -1, -1, -1], 3: [1] * 8,
+            4: [-1, 1, 1, 1, 1, -1, -1, -1], 5: [1, 1, -1, -1, 1, -1, -1, -1]}
     votes = pd.DataFrame([{"congress": 110, "chamber": "House", "rollnumber": r, "icpsr": i + 1, "vote": v}
                           for r, cast in vote.items() for i, v in enumerate(cast)])
     rows = build_rows(votes, members, rollcalls, topics)
-    assert set(rows["rollnumber"]) == {1, 2, 4}
+    assert set(rows["rollnumber"]) == {1, 2, 4, 5}
+    assert set(rows.loc[rows["rollnumber"] == 5, "party"]) == {"R"}
     member = rows[rows["icpsr"] == 1].set_index("rollnumber")
     assert member["defected"].tolist() == [True, False, True]
     assert np.isnan(member.loc[1, "prior_rate_all"]) and member.loc[2, "prior_rate_all"] == 1.0

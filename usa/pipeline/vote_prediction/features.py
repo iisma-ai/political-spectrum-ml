@@ -44,8 +44,13 @@ def party_positions(votes: pd.DataFrame) -> pd.DataFrame:
     out = votes.copy()
     out["own_position"] = np.sign(own_yea - own_nay).astype("int8")
     out["other_position"] = np.sign(other_yea - other_nay).astype("int8")
+    # The whole party's margin, with the member: the same for everyone in the party on a roll call, so filters and
+    # features built from it don't depend on how this member voted.
+    full_yea = own_yea + votes["vote"].eq(1).to_numpy()
+    full_nay = own_nay + votes["vote"].eq(-1).to_numpy()
+    out["own_full_margin"] = (full_yea - full_nay).astype("int32")
     # Only for the labelled variant: how split each party was, known only after the vote.
-    out["own_cohesion"] = (np.abs(own_yea - own_nay) / np.maximum(own_yea + own_nay, 1)).astype("float32")
+    out["own_cohesion"] = (np.abs(full_yea - full_nay) / np.maximum(full_yea + full_nay, 1)).astype("float32")
     out["other_cohesion"] = (np.abs(other_yea - other_nay) / np.maximum(other_yea + other_nay, 1)).astype("float32")
     return out
 
@@ -98,8 +103,9 @@ def add_history(frame: pd.DataFrame) -> pd.DataFrame:
 def build_rows(votes: pd.DataFrame, members: pd.DataFrame, rollcalls: pd.DataFrame, topics: pd.DataFrame) -> pd.DataFrame:
     """Build the prediction table from votes, members, roll calls and topics already limited to the wanted Congresses.
 
-    Keeps Democrat and Republican Yea and Nay votes on roll calls that aren't near-unanimous, and drops votes where
-    the member's own party, without them, was tied or had no other voters.
+    Keeps Democrat and Republican Yea and Nay votes on roll calls that aren't near-unanimous. A party whose whole
+    margin, including the member, is 0 or 1 vote is dropped for that roll call: deciding this without the member would
+    keep or drop rows depending on how the member voted.
     """
     covariates = member_covariates(members)
     covariates = covariates[~covariates["is_delegate"] & covariates["party"].isin(["D", "R"])]
@@ -108,7 +114,9 @@ def build_rows(votes: pd.DataFrame, members: pd.DataFrame, rollcalls: pd.DataFra
     member_columns = ["congress", "chamber", "icpsr", "person", "party", "region", "tenure", "freshman", "majority", "bioname", "state_abbrev"]
     frame = frame.merge(covariates[member_columns].drop_duplicates(["congress", "chamber", "icpsr"]), on=["congress", "chamber", "icpsr"])
     frame = party_positions(frame)
-    frame = frame[frame["own_position"] != 0]
+    close = frame["own_full_margin"].abs() <= 1
+    print(f"Dropped {close.sum():,} of {len(frame):,} votes ({close.mean():.3%}) where the member's party split by 0 or 1 votes")
+    frame = frame[~close].drop(columns="own_full_margin")
     frame = frame.merge(topics[ROLLCALL_KEYS + ["vote_type"]], on=ROLLCALL_KEYS, how="left")
     frame["vote_type"] = frame["vote_type"].fillna("unknown")
     frame["defected"] = frame["vote"].to_numpy() != frame["own_position"].to_numpy()
