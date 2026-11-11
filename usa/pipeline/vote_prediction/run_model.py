@@ -39,12 +39,12 @@ def period(rows, bounds):
     return rows["congress"].between(*bounds).to_numpy()
 
 
-def load_or_build(rebuild: bool) -> pd.DataFrame:
+def load_or_build(rebuild: bool, min_minority_share: float | None = None) -> pd.DataFrame:
     cache = OUTPUTS / "rows.parquet"
     if cache.exists() and not rebuild:
         rows = pd.read_parquet(cache)
     else:
-        rows = load_rows()
+        rows = load_rows(min_minority_share=min_minority_share)
         rows["party_region"] = rows["party"] + " " + rows["region"]
         rows["log_prior_votes"] = np.log1p(rows["prior_votes"]).astype("float32")
         rows.to_parquet(cache)
@@ -126,8 +126,13 @@ def main() -> None:
     parser.add_argument("--seeds", type=int, default=3, help="number of GRU training seeds")
     parser.add_argument("--threads", type=int, default=8)
     parser.add_argument("--refit", action="store_true", help="refit every model instead of reusing saved predictions and weights")
+    parser.add_argument("--min-minority-share", type=float, default=None,
+                        help="near-unanimous cutoff for a sensitivity check (default: the standard 2.5%% flag); outputs go to outputs/cutoff_<value>/")
     args = parser.parse_args()
-    OUTPUTS.mkdir(exist_ok=True)
+    global OUTPUTS
+    if args.min_minority_share is not None:
+        OUTPUTS = OUTPUTS / f"cutoff_{args.min_minority_share:g}"
+    OUTPUTS.mkdir(parents=True, exist_ok=True)
     torch.set_num_threads(args.threads)
 
     def log(message):
@@ -136,7 +141,7 @@ def main() -> None:
             file.write(message + "\n")
 
     started = time.time()
-    rows = load_or_build(args.rebuild)
+    rows = load_or_build(args.rebuild, args.min_minority_share)
     rows = rows.sort_values(SEQUENCE_KEYS + ["date", "rollnumber"], kind="stable").reset_index(drop=True)
     train, valid, test = period(rows, TRAIN), period(rows, VALID), period(rows, TEST)
     log(f"{len(rows):,} rows; train {train.sum():,}, validation {valid.sum():,}, test {test.sum():,} ({time.time() - started:.0f}s)")

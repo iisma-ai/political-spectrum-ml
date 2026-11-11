@@ -72,3 +72,22 @@ def test_build_rows_history_is_causal_and_drops_lopsided_votes_and_close_party_s
     assert member.loc[4, "prior_rate_same_type"] == 1.0
     # Roll call 1: without member 1 both parties voted Nay. Roll call 2: Democrats Yea, Republicans Nay.
     assert not bool(member.loc[1, "party_opposed"]) and bool(member.loc[2, "party_opposed"])
+
+
+def test_build_rows_min_minority_share_overrides_the_standard_flag():
+    members = pd.DataFrame({
+        "congress": 110, "chamber": "House", "icpsr": range(1, 7), "bioguide_id": list("abcdef"),
+        "bioname": list("ABCDEF"), "party": ["D"] * 3 + ["R"] * 3, "state_abbrev": ["TX", "NY", "CA", "OH", "ME", "TX"],
+        "born": 1950, "nominate_dim1": [-0.3] * 3 + [0.4] * 3, "is_delegate": False,
+    })
+    # Roll call 1 has a minority share of 0.03: kept by the standard flag and a 1% cutoff, dropped at 5%.
+    rollcalls = pd.DataFrame({
+        "congress": 110, "chamber": "House", "rollnumber": [1, 2], "date": pd.to_datetime(["2007-01-02", "2007-01-03"]),
+        "is_lopsided": [False, False], "minority_share": [0.03, 0.5],
+    })
+    topics = rollcalls[["congress", "chamber", "rollnumber"]].assign(vote_type="passage")
+    votes = pd.DataFrame([{"congress": 110, "chamber": "House", "rollnumber": r, "icpsr": i + 1, "vote": v}
+                          for r, cast in {1: [1, 1, 1, -1, -1, -1], 2: [1, 1, 1, -1, -1, -1]}.items() for i, v in enumerate(cast)])
+    assert set(build_rows(votes, members, rollcalls, topics)["rollnumber"]) == {1, 2}
+    assert set(build_rows(votes, members, rollcalls, topics, min_minority_share=0.01)["rollnumber"]) == {1, 2}
+    assert set(build_rows(votes, members, rollcalls, topics, min_minority_share=0.05)["rollnumber"]) == {2}

@@ -40,6 +40,7 @@ Test years 2015 to 2024, models trained on 1991 to 2010. Every model is given ho
   Each step is larger than chance in a bootstrap over roll calls and members. The steps differ by kind of roll call:
   - on party-opposed roll calls, the GRU's AUC gain over boosting is marginal;
   - where the parties agree, boosting doesn't beat logistic regression.
+- **These results don't depend on the near-unanimous cutoff.** Refitted at 1% and 5% instead of 2.5%, the models keep the same order with each step larger than chance, the GRU beats the party line on accuracy by the same margin, and the two-behaviours shares below move by at most 1.4 points. Where the parties agree, levels do depend on the cutoff, because it selects on the final vote: the defection rate there goes from 11.2% to 15.7% ([notebook 03](pipeline/vote_prediction/notebooks/03_cutoff_sensitivity.ipynb)). Calibration and the chamber and vote-type results weren't rechecked.
 - **The GRU's gain is clearest in the Senate** (average precision 0.46 to 0.49 against 0.41 for boosting), especially on nominations. In the House it comes mainly from amendments, and it is worse than boosting on procedural votes and resolutions. Neither model was tuned beyond when to stop.
 - **The GRU stays close to calibrated on later years,** though defection fell from 11.7% in training years to 6.4% (shown for seed 0). Boosting over-predicts modestly at low risk; logistic regression roughly doubles it.
 - **"Defection" covers two behaviours** ([notebook 02](pipeline/vote_prediction/notebooks/02_member_states.ipynb)):
@@ -53,7 +54,7 @@ Test years 2015 to 2024, models trained on 1991 to 2010. Every model is given ho
 
 - They describe voting behaviour on votes that reached the floor, not beliefs. Leaders' agenda control affects which votes those are.
 - Comparing eras assumes a stable agenda and scale, which hasn't been tested.
-- Percentages depend on the near-unanimous vote cutoff. The figures above use 2.5%.
+- Percentages depend on the near-unanimous vote cutoff. The figures above use 2.5%. The main conclusions were checked at other cutoffs: clustering at several, vote prediction at 1% and 5%.
 - Shares in the turnover decomposition carry no uncertainty estimate. The direction is more reliable than the exact numbers.
 - "South" means the 11 former Confederate states.
 - The data is internally consistent with Voteview. Individual votes are externally confirmed only for a sample of 40 House roll calls from 2003 on.
@@ -65,7 +66,6 @@ Test years 2015 to 2024, models trained on 1991 to 2010. Every model is given ho
 - Whether Southern Democrats were a stable third bloc or a spread within the party. The answer depends on Louvain's resolution, and only key Congresses were tested at higher resolutions.
 - How much district partisanship and electoral margins explain defection. These aren't in Voteview yet.
 - Whether a tuned gradient boosting model would match the GRU, and why the 115th House (2017 to 2018) is hard for every model.
-- Whether the prediction results hold at other near-unanimous cutoffs. The cutoff is computed from the final vote, so it decides which roll calls where the parties agree are kept.
 
 ## Conclusions by problem
 

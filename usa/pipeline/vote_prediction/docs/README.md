@@ -49,6 +49,7 @@ Type: predictive, using `run_model.py`, with notebooks for evaluation.
 | 2026-11-11 | Show seed 0 of the GRU in by-Congress, calibration and subgroup results | Like-for-like with the one boosting model; the 3-seed average is an ensemble |
 | 2026-11-11 | Keep the split-size variant's cohesion on the whole party, including the member, and don't read its gain as "the residual is about the roll call" | Leaving the member out makes it differ between a defector and loyal colleagues on the same roll call (a per-row leak). Including them means it counts defectors, so its gain partly comes from containing the answer |
 | 2026-11-11 | Treat GRU propensity against previous-Congress Nokken-Poole as description, not validation | Both are built from the same earlier votes |
+| 2026-11-11 | Keep the 2.5% near-unanimous cutoff; compare only the order of models, not levels, across cutoffs on roll calls where the parties agree | Refitting at 1% and 5% leaves the ranking ladder, the accuracy gain and the two-behaviours shares unchanged ([notebook 03](../notebooks/03_cutoff_sensitivity.ipynb)). The cutoff uses the final vote, so where the parties agree it selects on defection: the defection rate there goes from 11.2% to 15.7% |
 
 ## Main results
 
@@ -65,11 +66,12 @@ Test years 2015 to 2024, single GRU seeds. Details and limits are in the noteboo
 
 Vote accuracy: 93.6% for the party line, 94.1% to 94.2% for single GRU seeds (95.3% and 95.5% to 95.6% on party-opposed roll calls).
 
+**Other near-unanimous cutoffs** ([notebook 03](../notebooks/03_cutoff_sensitivity.ipynb)): refitting every model (GRU seed 0 only) at 1% and 5% gives the same ladder, with each step over all votes larger than chance. Over all votes, GRU AUC is 0.854 at 1% and 0.857 at 5%. The GRU beats the party line on accuracy by the same margin (94.3% against 93.8% at 1%, 94.1% against 93.5% at 5%). The subset findings hold: the GRU's AUC gain over boosting on party-opposed roll calls is marginal at every cutoff, and boosting doesn't beat logistic regression where the parties agree at any cutoff (that it is worse isn't established). Where the parties agree, average precision rises and AUC falls with the cutoff, so levels there aren't comparable across cutoffs. Intervals don't include refit variation (seed, early stopping), and calibration and subgroup results weren't rechecked.
+
 ## Open questions
 
 - Would tuning boosting close the gap with the GRU?
 - Why is the 115th House (2017 to 2018) hard for every model?
-- Does the result hold with the near-unanimous cutoff at 1% or 5%?
 - What does the GRU's hidden state encode? A linear probe per Congress, scored on test years, would test it.
 
 ## Running
@@ -78,6 +80,7 @@ Vote accuracy: 93.6% for the party line, 94.1% to 94.2% for single GRU seeds (95
 python run_model.py            # reuses saved predictions and weights in outputs/
 python run_model.py --refit    # refits every model
 python run_model.py --rebuild  # also rebuilds the feature table
+python run_model.py --rebuild --refit --seeds 1 --min-minority-share 0.01  # another near-unanimous cutoff, saved in outputs/cutoff_0.01/
 ```
 
 The full refit takes about 55 minutes on a 16-thread CPU (`--threads 16`) (run on 2026-11-11 on a machine with 32 GB of RAM; peak memory wasn't measured). Each model's predictions are saved as soon as it finishes, so an interrupted run resumes. Outputs in `outputs/` aren't committed.
@@ -86,6 +89,7 @@ The full refit takes about 55 minutes on a 16-thread CPU (`--threads 16`) (run o
 
 - [01_model_comparison](../notebooks/01_model_comparison.ipynb): test results against the baselines, bootstrap intervals, results by Congress, calibration, and where models help.
 - [02_member_states](../notebooks/02_member_states.ipynb): what the GRU's member states hold, compared with Nokken-Poole and actual defection.
+- [03_cutoff_sensitivity](../notebooks/03_cutoff_sensitivity.ipynb): every model refitted at near-unanimous cutoffs of 1% and 5%; the ladder, accuracy, bootstrap intervals and the two kinds of defection compared with the standard 2.5%.
 
 ## Documentation
 

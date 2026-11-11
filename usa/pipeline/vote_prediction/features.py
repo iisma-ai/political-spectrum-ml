@@ -100,7 +100,8 @@ def add_history(frame: pd.DataFrame) -> pd.DataFrame:
     return frame.drop(columns="defected_f")
 
 
-def build_rows(votes: pd.DataFrame, members: pd.DataFrame, rollcalls: pd.DataFrame, topics: pd.DataFrame) -> pd.DataFrame:
+def build_rows(votes: pd.DataFrame, members: pd.DataFrame, rollcalls: pd.DataFrame, topics: pd.DataFrame,
+               min_minority_share: float | None = None) -> pd.DataFrame:
     """Build the prediction table from votes, members, roll calls and topics already limited to the wanted Congresses.
 
     Keeps Democrat and Republican Yea and Nay votes on roll calls that aren't near-unanimous. A party whose whole
@@ -109,7 +110,9 @@ def build_rows(votes: pd.DataFrame, members: pd.DataFrame, rollcalls: pd.DataFra
     """
     covariates = member_covariates(members)
     covariates = covariates[~covariates["is_delegate"] & covariates["party"].isin(["D", "R"])]
-    keep = rollcalls.loc[~rollcalls["is_lopsided"], ROLLCALL_KEYS + ["date"]]
+    # None uses the standard near-unanimous flag (smaller side under 2.5%); a number sets another cutoff, for sensitivity checks.
+    contested = ~rollcalls["is_lopsided"] if min_minority_share is None else rollcalls["minority_share"] >= min_minority_share
+    keep = rollcalls.loc[contested, ROLLCALL_KEYS + ["date"]]
     frame = votes[votes["vote"] != 0].merge(keep, on=ROLLCALL_KEYS)
     member_columns = ["congress", "chamber", "icpsr", "person", "party", "region", "tenure", "freshman", "majority", "bioname", "state_abbrev"]
     frame = frame.merge(covariates[member_columns].drop_duplicates(["congress", "chamber", "icpsr"]), on=["congress", "chamber", "icpsr"])
@@ -127,7 +130,7 @@ def build_rows(votes: pd.DataFrame, members: pd.DataFrame, rollcalls: pd.DataFra
     return add_history(frame)
 
 
-def load_rows(start: int = HISTORY_START, end: int = INCOMPLETE_CONGRESS) -> pd.DataFrame:
+def load_rows(start: int = HISTORY_START, end: int = INCOMPLETE_CONGRESS, min_minority_share: float | None = None) -> pd.DataFrame:
     """Build the prediction table for Congresses start to end - 1 from the processed Voteview tables."""
     members = load_members()
     rollcalls = load_rollcalls()
@@ -136,5 +139,5 @@ def load_rows(start: int = HISTORY_START, end: int = INCOMPLETE_CONGRESS) -> pd.
     votes = votes[(votes["congress"] >= start) & (votes["congress"] < end)][["congress", "chamber", "rollnumber", "icpsr", "vote"]]
     in_range = lambda table: table[(table["congress"] >= start) & (table["congress"] < end)]  # noqa: E731
     # Tenure needs every earlier Congress, so members are limited only after the covariates are built.
-    rows = build_rows(votes, members, in_range(rollcalls), in_range(topics))
+    rows = build_rows(votes, members, in_range(rollcalls), in_range(topics), min_minority_share)
     return rows[rows["congress"] >= start]
