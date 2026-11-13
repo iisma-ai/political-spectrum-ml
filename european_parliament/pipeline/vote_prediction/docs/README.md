@@ -34,6 +34,23 @@ Type: predictive, using `run_model.py`, with notebooks for evaluation.
 
 Group identity isn't a feature, because groups changed between terms (Identity and Democracy ended; Patriots for Europe and Europe of Sovereign Nations are new in the test term). Group and national party history come from earlier roll calls only, so colleagues' positions on the same roll call never enter.
 
+## Main results
+
+Pending method review. Test term: the 10th (16 July 2024 to October 2026), 3.7 million positions, 8.1% defections ([notebook 01](../notebooks/01_model_comparison.ipynb)).
+
+| Model | Line accuracy | Defection AUC | Average precision |
+|---|---|---|---|
+| Group line | 91.9% | 0.500 | 0.081 |
+| Own past rate | 91.9% | 0.726 | 0.202 |
+| Logistic regression | 92.0% | 0.799 | 0.325 |
+| Gradient boosting | 92.1% | 0.802 | 0.332 |
+| GRU, three seeds | 92.6% | 0.834 to 0.839 | 0.415 to 0.425 |
+| Boosting + split (after the vote) | 96.0% | 0.967 | 0.827 |
+
+- Every step except boosting over logistic regression is clearly larger than chance in a two-way bootstrap (roll calls and members), on all positions and on both kinds of roll call.
+- The GRU's gain over boosting comes entirely from earlier positions on the same sitting day: on a member's first position of the day the two are equal (AUC 0.696 and 0.703, average precision 0.183 for both).
+- No decay across the term change, and the GRU beats boosting in every group.
+
 ## Most important decisions
 
 | Date | Decision | Why |
