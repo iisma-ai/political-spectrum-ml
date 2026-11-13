@@ -16,11 +16,28 @@ Scope so far: plenary roll calls from July 2019 to October 2026 (the 9th term an
   - On 66% of the 10th-term roll calls where the EPP joined the ECR pair, the EPP and the groups to its right cast more votes than the whole other side, against 3.7% in the 9th term.
   - A majority without the EPP won 17.6% of contested roll calls in the 9th term and 6.4% in the 10th ([notebook 02](pipeline/polarization_clustering/notebooks/02_coalitions.ipynb)).
 
+### Explaining votes
+
+- **When a member's national party colleagues and their political group take different lines, members vote with their national colleagues.** Where all of a member's other colleagues from the same national party and group (at least two) vote together against the group's line, the member votes with them on 97.0% (9th term) and 96.1% (10th) of positions, and with the group on 2.3% and 2.9%. When the two lines agree, members vote against united colleagues on under 1%.
+  - Random placebo colleagues from other parties in the group are followed only 23% of the time.
+  - Measuring against the line of the group's other national parties gives 96.7% to 97.6%.
+  - ID and PfE make up about 40% of these conflicts. By group the share ranges from 88% (ESN) to 99%, and counted once per national party and roll call it is 82% to 85% ([notebook 02](pipeline/vote_explanation/notebooks/02_group_or_national_party.ipynb)).
+- **Members vote against their group line on 8.8% and 8.2% of positions on contested roll calls, a third of them abstentions.** The rate is lowest in Greens/EFA (2.2% and 4.2%) and S&D (about 5%), and highest in ECR (14.1% and 12.6%), ID (23.3%) and PfE (15.5%).
+  - Measured against the line of the group's other national parties, ID's rate is 37.5% and PfE's 20.7%, because a few large delegations largely set those groups' lines.
+  - About half of all defections are with united national colleagues. In ID and PfE it is three quarters ([notebook 01](pipeline/vote_explanation/notebooks/01_defection_patterns.ipynb), [notebook 02](pipeline/vote_explanation/notebooks/02_group_or_national_party.ipynb)).
+- **Members of smaller national parties defect more.** Where a member's party holds fewer than 10 seats in the group, the odds of defecting are about twice those in larger parties, also after accounting for what the colleagues did. Against the line without the member's own party, the ratio is 1.4 to 1.5, so part of the gap comes from large delegations setting the line.
+  - Final votes carry slightly higher odds than amendments; age shows none.
+  - Subjects matter less than groups: Women's Rights roll calls see the most defection, Budgetary Control little ([notebook 03](pipeline/vote_explanation/notebooks/03_subjects_and_model.ipynb)).
+- **Members from some countries defect more than their group colleagues from other countries in both terms:** Sweden, Malta, Czechia, Denmark and Hungary, by 1.4 to 2.1 times. This mostly reflects their national parties ([notebook 01](pipeline/vote_explanation/notebooks/01_defection_patterns.ipynb)).
+- **Defection is hard to predict before the vote, as in the USA.** Trained on the 9th term and tested on the 10th, a member's own previous half-year rate gives AUC 0.702. Gradient boosting adds about 0.008, which holds when members or roll calls are resampled. Knowing how the member's national colleagues voted on the same roll call gives 0.922, which describes collective defection rather than forecasting it ([notebook 03](pipeline/vote_explanation/notebooks/03_subjects_and_model.ipynb)).
+
 ## How to read these
 
 - Only roll calls are recorded, and they are taken on request, so they are a selected sample of plenary votes. Show-of-hands votes are missing. All results describe voting behaviour on requested roll calls, not beliefs.
 - The two terms vote on different agendas and with different members (the 2024 election, members changing group, the UK leaving in 2020). A difference between terms isn't the same members changing their votes. Separating member replacement from change is an open question.
 - Results hold at near-unanimous cutoffs of 0%, 2.5% and 10% and with abstention counted against.
+- National party lines are revealed from votes, not recorded instructions. Voting with national colleagues may reflect instructions, shared views or both.
+- Defection here is measured against the group's most common position with the member included. The leave-one-out version used as the prediction baseline gives 9.0% and 8.4%.
 - The size-adjusted modularity used in the USA can't be compared across chambers with different numbers of groups, so the European Parliament isn't ranked against the USA on it.
 - The data matches the European Parliament's Open Data Portal: no roll call missing on any sitting day, and no disagreement on individual positions in a random sample of 200 roll calls ([data loading](pipeline/data_loading/docs/README.md)).
 
@@ -30,3 +47,4 @@ Scope so far: plenary roll calls from July 2019 to October 2026 (the 9th term an
 |---|---|---|
 | [data_loading](pipeline/data_loading/docs/README.md) | Foundation done | Internally consistent, complete against the Open Data Portal, and matching it on a 200 roll-call sample |
 | [polarization_clustering](pipeline/polarization_clustering/docs/README.md) | Step 2 done | Cohesive groups along one ordering; the EPP closer to S&D and Renew in the 10th term, while the EPP with the groups to its right now holds enough votes to win when they combine |
+| [vote_explanation](pipeline/vote_explanation/docs/README.md) | Step 3 done | Members vote with united national colleagues over the group on about 96% of conflicts; defection is highest on the right and about half collective; hard to predict before the vote beyond a member's own record |

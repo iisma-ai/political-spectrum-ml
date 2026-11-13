@@ -2,7 +2,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from explanation import defection_rows, follows, independent_party_ids, lagged_rate, shift_share
+from explanation import (
+    defection_rows, follows, independent_party_ids, lagged_rate, placebo_colleagues, shift_share,
+)
 
 
 def votes_frame(rows):
@@ -85,3 +87,42 @@ def test_independents_have_no_party_line():
     assert defection_rows(votes, no_party_ids={9.0})["defected_party"].isna().all()
     parties = pd.DataFrame({"national_party_id": [1, 2, 3], "label": ["Independent", "Volt", "Indépendant"]})
     assert independent_party_ids(parties) == {1, 3}
+
+
+def test_colleague_categories_and_outside_line():
+    # EPP: party 1 (6 For) dominates; party 2 (3 Against); party 3 (2 members, split); one member without a party.
+    rows = votes_frame([(1, i, "FOR", "EPP", 1.0) for i in range(6)]
+                       + [(1, 10 + i, "AGAINST", "EPP", 2.0) for i in range(3)]
+                       + [(1, 20, "FOR", "EPP", 3.0), (1, 21, "AGAINST", "EPP", 3.0), (1, 30, "AGAINST", "EPP", np.nan)])
+    out = defection_rows(rows).set_index("member_id")
+    assert out.loc[0, "colleagues"] == "united with the group"
+    assert out.loc[10, "colleagues"] == "united against the group"
+    assert out.loc[20, "colleagues"] == "too few colleagues"
+    assert out.loc[30, "colleagues"] == "too few colleagues"
+    # Without party 1, the rest of the group is 1 For and 5 Against, so party 1's outside line is Against.
+    assert out.loc[0, "group_line_outside"] == 1 and out.loc[0, "defected_group_outside"] == 1
+    assert out.loc[0, ["outside_for", "outside_against"]].tolist() == [1, 5]
+
+
+def test_colleagues_divided_and_same_group_only():
+    rows = votes_frame([(1, i, "FOR", "EPP", 1.0) for i in range(5)]
+                       + [(1, 10, "AGAINST", "EPP", 2.0), (1, 11, "FOR", "EPP", 2.0), (1, 12, "AGAINST", "EPP", 2.0),
+                          (1, 13, "FOR", "ECR", 2.0)])
+    out = defection_rows(rows).set_index("member_id")
+    assert out.loc[10, "colleagues"] == "colleagues divided"
+    assert out.loc[10, "party_others"] == 2  # the ECR member of the same party isn't a colleague here
+
+
+def test_leave_one_out_rate_has_the_even_split_artefact():
+    rows = defection_rows(votes_frame(group_of(1, ["FOR"] * 3 + ["AGAINST"] * 3)))
+    assert rows["defected_group_leave_one_out"].eq(1).all()
+
+
+def test_placebo_draws_from_other_parties():
+    rows = defection_rows(votes_frame([(1, i, "FOR", "EPP", 1.0) for i in range(6)]
+                                      + [(1, 10 + i, "AGAINST", "EPP", 2.0) for i in range(3)]))
+    placebo = placebo_colleagues(rows, np.random.default_rng(0))
+    # Party 2's members draw 2 colleagues from party 1's six For votes: the placebo line is For, with no conflict.
+    second = rows["national_party_id"] == 2.0
+    assert placebo.loc[second, "placebo_line"].eq(0).all()
+    assert placebo.loc[second, "placebo_conflict"].eq(0).all()

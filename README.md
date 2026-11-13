@@ -7,7 +7,7 @@ A comparative study of how votes can be explained and how the political spectrum
 | Entity | Status | Conclusions |
 |---|---|---|
 | USA | Data foundation, clustering, explanation and prediction done | [usa/README.md](usa/README.md) |
-| European Parliament | Data foundation and clustering done (2019 to 2026); explanation next | [european_parliament/README.md](european_parliament/README.md) |
+| European Parliament | Data foundation, clustering and explanation done (2019 to 2026); prediction next | [european_parliament/README.md](european_parliament/README.md) |
 
 ## Comparing entities
 
