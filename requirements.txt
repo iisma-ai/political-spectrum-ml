@@ -8,4 +8,5 @@ pyarrow
 pytest
 scikit-learn
 scipy
+statsmodels
 torch
