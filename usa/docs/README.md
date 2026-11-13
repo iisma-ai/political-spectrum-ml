@@ -23,7 +23,7 @@ Two dominant parties, two chambers, and a long continuous roll-call record. Sepa
 2. **Clustering (done 2026-11-03):** agreement, modularity and embeddings per Congress, then time-aware communities and the replacement versus conversion split.
 3. **Explanation (done 2026-11-04):** add topics and member covariates, then polarization by issue and defection modelling.
 4. **Prediction (done 2026-11-11):** logistic baseline, gradient boosting and GRU. A graph network and bill text are deferred, because the GRU's gain over boosting is modest.
-5. **Other entities (next):** European Parliament first, using the same pipeline.
+5. **Other entities (started 2026-11-12):** European Parliament first, using the same pipeline; see [its roadmap](../../european_parliament/docs/README.md#roadmap).
 
 ## Documentation
 

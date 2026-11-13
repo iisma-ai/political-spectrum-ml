@@ -1,6 +1,6 @@
 # Data sources for other entities
 
-Researched on 2026-11-02 while planning the USA work. Move these to each entity's `docs/datasets/` when that entity is created.
+Researched on 2026-11-02 while planning the USA work. Move these to each entity's `docs/datasets/` when that entity is created. European Parliament sources are now in [european_parliament/docs/datasets/sources.md](../../../european_parliament/docs/datasets/sources.md).
 
 | Source | Covers | Status |
 |---|---|---|

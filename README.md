@@ -6,7 +6,8 @@ A comparative study of how votes can be explained and how the political spectrum
 
 | Entity | Status | Conclusions |
 |---|---|---|
-| USA | Data foundation, clustering, explanation and prediction done; European Parliament next | [usa/README.md](usa/README.md) |
+| USA | Data foundation, clustering, explanation and prediction done | [usa/README.md](usa/README.md) |
+| European Parliament | Data foundation done (2019 to 2026); clustering next | [european_parliament/README.md](european_parliament/README.md) |
 
 ## How the repo is organised
 
