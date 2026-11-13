@@ -7,7 +7,13 @@ A comparative study of how votes can be explained and how the political spectrum
 | Entity | Status | Conclusions |
 |---|---|---|
 | USA | Data foundation, clustering, explanation and prediction done | [usa/README.md](usa/README.md) |
-| European Parliament | Data foundation done (2019 to 2026); clustering next | [european_parliament/README.md](european_parliament/README.md) |
+| European Parliament | Data foundation and clustering done (2019 to 2026); explanation next | [european_parliament/README.md](european_parliament/README.md) |
+
+## Comparing entities
+
+Problems use the same names and, where possible, the same measures in every entity. Some measures can't be compared directly:
+
+- **Size-adjusted modularity** depends on the number of groups as well as on how separated they are, so a multi-group chamber can't be ranked against a two-party one on it. The European Parliament also reports agreement within and between groups, which doesn't have this problem.
 
 ## How the repo is organised
 

@@ -5,8 +5,8 @@
 Same steps as the [USA](../../usa/docs/README.md#roadmap), with the same problem names so results can be compared.
 
 1. **Foundation (done 2026-11-12):** download HowTheyVote.eu, build the member-by-vote tables, and check them against the official Open Data Portal.
-2. **Clustering (next):** agreement and cohesion by political group, coalitions between groups, and embeddings per term.
-3. **Explanation:** defection from the political group and from the national party, by subject, country and group.
+2. **Clustering (done 2026-11-13):** cohesion by political group, coalitions between groups, member agreement networks and maps per term ([decisions](../pipeline/polarization_clustering/docs/README.md)).
+3. **Explanation (next):** defection from the political group and from the national party, by subject, country and group.
 4. **Prediction:** the same ladder as the USA (group line, own past rate, logistic regression, gradient boosting, GRU).
 
 ## Most important decisions
@@ -35,3 +35,5 @@ Numbers marked "from the data" are printed by `pipeline/data_loading/validate.py
 ## Documentation
 
 - [Data sources](datasets/sources.md)
+- [Data loading](../pipeline/data_loading/docs/README.md)
+- [Polarization clustering](../pipeline/polarization_clustering/docs/README.md)
