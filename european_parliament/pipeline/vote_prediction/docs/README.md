@@ -77,6 +77,7 @@ By kind of roll call, one roll call ahead:
 - **First positions of the day** (1.7% of positions): no step between models is established.
 - **Over time and by group:** AUC drops by about 0.02 from the validation half-years to the first half of the 10th term, then holds. The validation half-years were used for model choices. One roll call ahead, the GRU beats boosting in every group (single seed, no intervals).
 - **Close-split filter:** it removes 0.24% of test positions but 2.9% of test defections, so the test defection rate is 8.13% instead of 8.35%.
+- **Compared with the USA:** notebook 01 says the USA had no day-ahead check; it has one now ([USA notebook 04](../../../../usa/pipeline/vote_prediction/notebooks/04_day_ahead.ipynb), 2026-11-14). There, same-day history adds only +0.009 AUC to boosting and at most +0.024 to the GRU, mostly on runs of roll calls on the same bill, and day-ahead boosting still beats the own past rate by +0.070. Same-text persistence seems to be common to both; what differs is how much the earlier days and the roll call's features already predict.
 - **Not yet checked:** other near-unanimous cutoffs (`--min-minority-share` exists; the USA ran 1% and 5%).
 
 ## Most important decisions

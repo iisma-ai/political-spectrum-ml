@@ -4,6 +4,9 @@ Each member, chamber and party spell is one sequence, ordered by date and roll n
 the roll call's features, the member's fixed features, and whether the member defected at step t - 1. The output is
 the probability of defecting at step t. So the hidden state is a running summary of the member's past votes, like
 the hand-built history features given to the other models, but learned.
+
+The day-ahead version gets no outcome from the same day: instead of the previous outcome, it gets the previous day's
+defection rates at the member's first vote of each day.
 """
 
 import numpy as np
@@ -33,11 +36,44 @@ def step_inputs(rows: pd.DataFrame) -> np.ndarray:
     return np.concatenate(columns, axis=1)
 
 
+def previous_inputs(rows: pd.DataFrame, target: np.ndarray, day_ahead: bool) -> np.ndarray:
+    """Outcome inputs for each step. rows must be sorted by sequence and time.
+
+    Standard: the outcome at the previous step and a first-step flag. Day-ahead: the member's defection rates on their
+    previous day with votes (all, party-opposed, bipartisan; the latter two fall back to the first when empty) at the
+    first vote of each day, a first-of-day flag and a first-step flag.
+    """
+    group = rows.groupby(SEQUENCE_KEYS, sort=False).ngroup().to_numpy()
+    new_sequence = np.r_[True, group[1:] != group[:-1]]
+    if not day_ahead:
+        previous = np.zeros((len(rows), 2), dtype="float32")
+        previous[1:, 0] = target[:-1]
+        previous[new_sequence, 0] = 0
+        previous[new_sequence, 1] = 1
+        return previous
+    date = rows["date"].to_numpy()
+    new_day = new_sequence | np.r_[True, date[1:] != date[:-1]]
+    day = np.cumsum(new_day) - 1
+    opposed = rows["party_opposed"].to_numpy().astype(bool)
+    days = pd.DataFrame({"day": day, "y": target, "opposed": np.where(opposed, target, np.nan),
+                         "bipartisan": np.where(opposed, np.nan, target)}).groupby("day").mean()
+    days["opposed"] = days["opposed"].fillna(days["y"])
+    days["bipartisan"] = days["bipartisan"].fillna(days["y"])
+    rates = days[["y", "opposed", "bipartisan"]].to_numpy("float32")
+    previous = np.zeros((len(rows), 5), dtype="float32")
+    first_rows = np.flatnonzero(new_day)
+    has_earlier_day = ~new_sequence[first_rows]
+    previous[first_rows[has_earlier_day], :3] = rates[day[first_rows[has_earlier_day]] - 1]
+    previous[new_day, 3] = 1
+    previous[new_sequence, 4] = 1
+    return previous
+
+
 class DefectionGRU(nn.Module):
-    def __init__(self, n_inputs: int, hidden: int = 64):
+    def __init__(self, n_inputs: int, hidden: int = 64, n_previous: int = 2):
         super().__init__()
-        # Two extra inputs: the previous outcome and a flag for the first step of a sequence.
-        self.gru = nn.GRU(n_inputs + 2, hidden, batch_first=True)
+        # Extra inputs for earlier outcomes and flags: see previous_inputs.
+        self.gru = nn.GRU(n_inputs + n_previous, hidden, batch_first=True)
         self.head = nn.Sequential(nn.Linear(hidden + n_inputs, 32), nn.ReLU(), nn.Linear(32, 1))
 
     def forward(self, x, previous, h=None):
@@ -49,9 +85,10 @@ class DefectionGRU(nn.Module):
 class SequenceBatches:
     """Padded batches of whole sequences, grouped by length to limit padding."""
 
-    def __init__(self, rows: pd.DataFrame, train_mask: np.ndarray, batch_size: int = 64):
+    def __init__(self, rows: pd.DataFrame, train_mask: np.ndarray, batch_size: int = 64, day_ahead: bool = False):
         self.inputs = step_inputs(rows)
         self.target = rows["defected"].to_numpy().astype("float32")
+        self.previous = previous_inputs(rows, self.target, day_ahead)
         self.train_mask = train_mask.astype("float32")
         group = rows.groupby(SEQUENCE_KEYS, sort=False).ngroup().to_numpy()
         starts = np.flatnonzero(np.r_[True, group[1:] != group[:-1]])
@@ -63,7 +100,7 @@ class SequenceBatches:
         spans = [self.spans[i] for i in batch]
         length = max(end - start for start, end in spans)
         x = np.zeros((len(spans), length, self.inputs.shape[1]), dtype="float32")
-        previous = np.zeros((len(spans), length, 2), dtype="float32")
+        previous = np.zeros((len(spans), length, self.previous.shape[1]), dtype="float32")
         y = np.zeros((len(spans), length), dtype="float32")
         weight = np.zeros((len(spans), length), dtype="float32")
         index = np.full((len(spans), length), -1, dtype="int64")
@@ -71,8 +108,7 @@ class SequenceBatches:
             n = end - start
             x[row, :n] = self.inputs[start:end]
             y[row, :n] = self.target[start:end]
-            previous[row, 1:n, 0] = self.target[start:end - 1]
-            previous[row, 0, 1] = 1.0
+            previous[row, :n] = self.previous[start:end]
             weight[row, :n] = self.train_mask[start:end]
             index[row, :n] = np.arange(start, end)
         return torch.from_numpy(x), torch.from_numpy(previous), torch.from_numpy(y), torch.from_numpy(weight), index
@@ -134,12 +170,12 @@ def predict(model, data: SequenceBatches, chunk: int = 2048, state_groups: np.nd
 
 
 def fit_gru(rows: pd.DataFrame, train_mask, valid_mask, seed: int = 0, hidden: int = 64, max_epochs: int = 12,
-            patience: int = 2, log=print):
+            patience: int = 2, day_ahead: bool = False, log=print):
     """Train on train_mask rows and stop when log loss on valid_mask rows stops improving. Returns the best model."""
     torch.manual_seed(seed)
     rng = np.random.default_rng(seed)
-    data = SequenceBatches(rows, train_mask)
-    model = DefectionGRU(data.inputs.shape[1], hidden)
+    data = SequenceBatches(rows, train_mask, day_ahead=day_ahead)
+    model = DefectionGRU(data.inputs.shape[1], hidden, n_previous=data.previous.shape[1])
     optimiser = torch.optim.Adam(model.parameters(), lr=2e-3)
     target = data.target[valid_mask]
     best, best_state, stale = np.inf, None, 0
@@ -148,7 +184,7 @@ def fit_gru(rows: pd.DataFrame, train_mask, valid_mask, seed: int = 0, hidden: i
         probability, _ = predict(model, data)
         p = np.clip(probability[valid_mask], 1e-6, 1 - 1e-6)
         valid_loss = float(-np.mean(target * np.log(p) + (1 - target) * np.log(1 - p)))
-        log(f"seed {seed} epoch {epoch + 1}: train log loss {train_loss:.4f}, validation log loss {valid_loss:.4f}")
+        log(f"{'day-ahead ' if day_ahead else ''}seed {seed} epoch {epoch + 1}: train log loss {train_loss:.4f}, validation log loss {valid_loss:.4f}")
         if valid_loss < best - 1e-5:
             best, best_state, stale = valid_loss, {k: v.clone() for k, v in model.state_dict().items()}, 0
         else:

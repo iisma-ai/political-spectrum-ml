@@ -38,3 +38,20 @@ def test_predictions_do_not_depend_on_later_outcomes():
     assert np.allclose(p_first[:3], p_second[:3])
     assert not np.allclose(p_first[3], p_second[3])
     assert np.allclose(p_first[4:], p_second[4:])
+
+
+def test_day_ahead_prediction_ignores_the_same_day():
+    torch.manual_seed(0)
+    dates = pd.to_datetime(["2007-01-02", "2007-01-02", "2007-01-03", "2007-01-03", "2007-01-02", "2007-01-03"])
+    first = rows([True, False, True, False, True, True]).assign(date=dates)
+    # Member a's second vote on day one changes: no day-one prediction may move, but day two's may.
+    second = rows([True, True, True, False, True, True]).assign(date=dates)
+    # Member a's first vote on day two changes: no prediction may move, since day two's outcomes never enter.
+    third = rows([True, False, False, False, True, True]).assign(date=dates)
+    batches = lambda frame: SequenceBatches(frame, np.ones(6, dtype=bool), day_ahead=True)  # noqa: E731
+    model = DefectionGRU(batches(first).inputs.shape[1], hidden=8, n_previous=batches(first).previous.shape[1])
+    p_first, _ = predict(model, batches(first))
+    p_second, _ = predict(model, batches(second))
+    p_third, _ = predict(model, batches(third))
+    assert np.allclose(p_first[:2], p_second[:2]) and not np.allclose(p_first[2:4], p_second[2:4])
+    assert np.allclose(p_first, p_third)

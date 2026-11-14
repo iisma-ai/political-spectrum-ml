@@ -76,6 +76,59 @@ def prior_rate(frame: pd.DataFrame, keys: list, value: str, mask=None, window: i
     return inclusive.groupby(group_ids).shift(1).groupby(group_ids).ffill()
 
 
+def day_ahead_rate(frame: pd.DataFrame, keys: list, value: str, mask=None, window: int | None = None) -> pd.Series:
+    """For each row, the mean of value over rows of the same group on earlier days only.
+
+    The day-ahead counterpart of prior_rate: the state at the end of the last earlier day with a masked row, so
+    nothing from the current day, including earlier roll calls that day, is used. frame must be sorted in time order
+    within each group and have a date column. Missing when there is no masked row on an earlier day.
+    """
+    rows = frame if mask is None else frame[mask]
+    rows = rows[keys + ["date", value]]
+    grouped = rows.groupby(keys, sort=False)[value]
+    total, count = grouped.cumsum(), grouped.cumcount() + 1.0
+    if window is not None:
+        group_ids = rows.groupby(keys, sort=False).ngroup()
+        total = total - total.groupby(group_ids).shift(window).fillna(0)
+        count = count.clip(upper=window)
+    state = rows[keys + ["date"]].assign(rate=(total / count).to_numpy())
+    state = state.groupby(keys + ["date"], sort=False)["rate"].last().reset_index().sort_values("date", kind="stable")
+    left = frame[keys + ["date"]].reset_index().sort_values("date", kind="stable")
+    merged = pd.merge_asof(left, state, on="date", by=keys, allow_exact_matches=False)
+    return pd.Series(merged["rate"].to_numpy(), index=merged["index"].to_numpy()).reindex(frame.index).astype("float32")
+
+
+def add_day_history(frame: pd.DataFrame) -> pd.DataFrame:
+    """Add day-ahead versions (suffix _day) of the history features and the count of earlier votes: only earlier
+    days count, as if every prediction for a day were made before the day's first roll call.
+
+    previous_congress_rate_opposed already uses only the previous Congress, so it has no day-ahead version.
+    frame must be sorted by SEQUENCE_KEYS and ORDER.
+    """
+    frame = frame.copy()
+    frame["defected_f"] = frame["defected"].astype("float32")
+    opposed = frame["party_opposed"].astype(bool)
+    member = SEQUENCE_KEYS
+    specs = {
+        "prior_rate_all": dict(keys=member),
+        "prior_rate_opposed": dict(keys=member, mask=opposed),
+        "prior_rate_bipartisan": dict(keys=member, mask=~opposed),
+        "recent_rate_opposed_100": dict(keys=member, mask=opposed, window=100),
+        "recent_rate_all_50": dict(keys=member, window=50),
+        "congress_rate_opposed": dict(keys=member + ["congress"], mask=opposed),
+        "prior_rate_same_type": dict(keys=member + ["vote_type"]),
+        "last_defected": dict(keys=member, window=1),
+    }
+    for name, spec in specs.items():
+        frame[f"{name}_day"] = day_ahead_rate(frame, value="defected_f", **spec)
+    # Earlier votes on earlier days only: same-day rows can be dropped by the close-split filter, which depends
+    # slightly on the member's own vote, so the plain count could carry a same-day outcome.
+    first_of_day = ~frame.duplicated(SEQUENCE_KEYS + ["date"])
+    count = frame.groupby(SEQUENCE_KEYS, sort=False).cumcount()
+    frame["prior_votes_day"] = count.where(first_of_day).groupby(frame.groupby(SEQUENCE_KEYS + ["date"], sort=False).ngroup()).transform("first").astype("int32")
+    return frame.drop(columns="defected_f")
+
+
 def add_history(frame: pd.DataFrame) -> pd.DataFrame:
     """Add history features computed from each member's earlier votes in the same chamber and party."""
     frame = frame.sort_values(SEQUENCE_KEYS + ORDER, kind="stable").reset_index(drop=True)
@@ -97,7 +150,7 @@ def add_history(frame: pd.DataFrame) -> pd.DataFrame:
     for column in ["prior_rate_all", "prior_rate_opposed", "prior_rate_bipartisan", "recent_rate_opposed_100", "recent_rate_all_50",
                    "congress_rate_opposed", "prior_rate_same_type", "last_defected", "previous_congress_rate_opposed"]:
         frame[column] = frame[column].astype("float32")
-    return frame.drop(columns="defected_f")
+    return add_day_history(frame.drop(columns="defected_f"))
 
 
 def build_rows(votes: pd.DataFrame, members: pd.DataFrame, rollcalls: pd.DataFrame, topics: pd.DataFrame,

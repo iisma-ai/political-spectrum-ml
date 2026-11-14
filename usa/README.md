@@ -2,7 +2,7 @@
 
 The most important conclusions of the analysis so far. Decisions are in [docs/README.md](docs/README.md).
 
-Last updated: 2026-11-11
+Last updated: 2026-11-14
 
 Scope so far: party and member-level analysis from 1857 to September 2026, using Voteview. The 119th Congress is unfinished and excluded from comparisons.
 
@@ -37,11 +37,17 @@ Test years 2015 to 2024, models trained on 1991 to 2010. Every model is given ho
   - gradient boosting: 0.850 and 0.379;
   - GRU, single seeds: 0.854 to 0.858 and 0.401 to 0.409.
 
-  Each step is larger than chance in a bootstrap over roll calls and members. The steps differ by kind of roll call:
-  - on party-opposed roll calls, the GRU's AUC gain over boosting is marginal;
-  - where the parties agree, boosting doesn't beat logistic regression.
-- **These results don't depend on the near-unanimous cutoff.** Refitted at 1% and 5% instead of 2.5%, the models keep the same order with each step larger than chance, the GRU beats the party line on accuracy by the same margin, and the two-behaviours shares below move by at most 1.4 points. Where the parties agree, levels do depend on the cutoff, because it selects on the final vote: the defection rate there goes from 11.2% to 15.7% ([notebook 03](pipeline/vote_prediction/notebooks/03_cutoff_sensitivity.ipynb)). Calibration and the chamber and vote-type results weren't rechecked.
-- **The GRU's gain is clearest in the Senate** (average precision 0.46 to 0.49 against 0.41 for boosting), especially on nominations. In the House it comes mainly from amendments, and it is worse than boosting on procedural votes and resolutions. Neither model was tuned beyond when to stop.
+  Each step is larger than chance in a bootstrap over roll calls and members, and also when days are resampled instead of roll calls. The steps differ by kind of roll call:
+  - on party-opposed roll calls, the GRU's AUC gain over boosting isn't established;
+  - where the parties agree, boosting is slightly below logistic regression (intervals only just exclude zero).
+- **Ranking who defects mostly doesn't need the same day's earlier votes; flagging defections partly does.** These models are one roll call ahead, so their history includes the member's votes earlier that day. With history only up to the previous day ([notebook 04](pipeline/vote_prediction/notebooks/04_day_ahead.ipynb)):
+  - boosting still beats the own past rate on both kinds of roll call, by +0.070 AUC over all votes (0.840 against 0.770; interval +0.061 to +0.079), against +0.076 one roll call ahead;
+  - same-day history adds +0.009 AUC to boosting and at most +0.024 to the GRU, mostly in runs of roll calls on the same bill;
+  - but day-ahead, the gain in average precision over the own past rate is +0.081 against +0.140 for the GRU one roll call ahead, defections caught at 0.5 fall from 19.1% to 9.5%, and the accuracy gain over the party line from 0.56 to 0.26 points;
+  - the day-ahead GRU (0.828 to 0.834, three seeds) is below day-ahead boosting (bootstrapped for seed 0), so the GRU's edge over boosting depends on same-day outcomes in this design.
+  - Voteview has dates but no times, so sessions past midnight span two dates; a check on consecutive dates is inconclusive, and vote times would settle it.
+- **These results don't depend on the near-unanimous cutoff.** Refitted at 1% and 5% instead of 2.5%, the models keep the same order with each step larger than chance, the GRU beats the party line on accuracy by the same margin, and the two-behaviours shares below move by at most 1.4 points. Where the parties agree, levels do depend on the cutoff, because it selects on the final vote: the defection rate there goes from 11.2% to 15.7% ([notebook 03](pipeline/vote_prediction/notebooks/03_cutoff_sensitivity.ipynb)). Calibration, the chamber and vote-type results, and the day-ahead models weren't rechecked.
+- **The GRU's gain is clearest in the Senate** (average precision 0.46 to 0.49 against 0.41 for boosting), especially on nominations. In the House it comes mainly from amendments, and it is worse than boosting on procedural votes and resolutions. Neither model was tuned beyond when to stop. These results are one roll call ahead and weren't rechecked day-ahead.
 - **The GRU stays close to calibrated on later years,** though defection fell from 11.7% in training years to 6.4% (shown for seed 0). Boosting over-predicts modestly at low risk; logistic regression roughly doubles it.
 - **"Defection" covers two behaviours** ([notebook 02](pipeline/vote_prediction/notebooks/02_member_states.ipynb)):
   - on party-opposed roll calls, 71% to 83% of defections come from the half of the party nearer the other party;
@@ -65,7 +71,7 @@ Test years 2015 to 2024, models trained on 1991 to 2010. Every model is given ho
 - How much of the pre-1969 narrowing reflects a changing agenda rather than members changing.
 - Whether Southern Democrats were a stable third bloc or a spread within the party. The answer depends on Louvain's resolution, and only key Congresses were tested at higher resolutions.
 - How much district partisanship and electoral margins explain defection. These aren't in Voteview yet.
-- Whether a tuned gradient boosting model would match the GRU, and why the 115th House (2017 to 2018) is hard for every model.
+- Whether a tuned gradient boosting model would match the GRU (day-ahead it already beats it), and why the 115th House (2017 to 2018) is hard for every model.
 
 ## Conclusions by problem
 
@@ -73,4 +79,4 @@ Test years 2015 to 2024, models trained on 1991 to 2010. Every model is given ho
 |---|---|---|
 | [polarization_clustering](pipeline/polarization_clustering/docs/README.md) | Steps 1 and 2 done | Convergence peaked about 1969 through a Southern Democratic and Republican middle; separation since then came mainly from replacement |
 | [vote_explanation](pipeline/vote_explanation/docs/README.md) | Step 3 done | Division grew within topics rather than through the topic mix; defection is regional and persists within members |
-| [vote_prediction](pipeline/vote_prediction/docs/README.md) | Step 4 done (graph network and bill text deferred) | A GRU over each member's votes ranks defections best (AUC 0.854 to 0.858), modestly ahead of boosting; accuracy barely beats the party line |
+| [vote_prediction](pipeline/vote_prediction/docs/README.md) | Step 4 done (graph network and bill text deferred); day-ahead check done | One roll call ahead, a GRU ranks defections best (AUC 0.854 to 0.858), modestly ahead of boosting; day-ahead, boosting is best (0.840) and keeps most of the ranking gain over a member's own record, but less of the flagging gain; accuracy barely beats the party line |
