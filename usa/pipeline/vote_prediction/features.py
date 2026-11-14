@@ -44,8 +44,8 @@ def party_positions(votes: pd.DataFrame) -> pd.DataFrame:
     out = votes.copy()
     out["own_position"] = np.sign(own_yea - own_nay).astype("int8")
     out["other_position"] = np.sign(other_yea - other_nay).astype("int8")
-    # The whole party's margin, with the member: the same for everyone in the party on a roll call, so filters and
-    # features built from it don't depend on how this member voted.
+    # The whole party's margin, with the member: the same for everyone in the party on a roll call (see build_rows for
+    # what a filter on it selects).
     full_yea = own_yea + votes["vote"].eq(1).to_numpy()
     full_nay = own_nay + votes["vote"].eq(-1).to_numpy()
     out["own_full_margin"] = (full_yea - full_nay).astype("int32")
@@ -105,8 +105,9 @@ def build_rows(votes: pd.DataFrame, members: pd.DataFrame, rollcalls: pd.DataFra
     """Build the prediction table from votes, members, roll calls and topics already limited to the wanted Congresses.
 
     Keeps Democrat and Republican Yea and Nay votes on roll calls that aren't near-unanimous. A party whose whole
-    margin, including the member, is 0 or 1 vote is dropped for that roll call: deciding this without the member would
-    keep or drop rows depending on how the member voted.
+    margin, including the member, is 0 or 1 vote is dropped for that roll call, so all its members are kept or dropped
+    together. Given the other members' votes, this drops defectors and keeps loyal members where the others split by 1
+    or 2 votes; a filter on the others' margin would keep only the minority side of every 1-vote split, all as defectors.
     """
     covariates = member_covariates(members)
     covariates = covariates[~covariates["is_delegate"] & covariates["party"].isin(["D", "R"])]

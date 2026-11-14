@@ -29,13 +29,24 @@ Scope so far: plenary roll calls from July 2019 to October 2026 (the 9th term an
   - Final votes carry slightly higher odds than amendments; age shows none.
   - Subjects matter less than groups: Women's Rights roll calls see the most defection, Budgetary Control little ([notebook 03](pipeline/vote_explanation/notebooks/03_subjects_and_model.ipynb)).
 - **Members from some countries defect more than their group colleagues from other countries in both terms:** Sweden, Malta, Czechia, Denmark and Hungary, by 1.4 to 2.1 times. This mostly reflects their national parties ([notebook 01](pipeline/vote_explanation/notebooks/01_defection_patterns.ipynb)).
-- **Defection is hard to predict before the vote, as in the USA.** Trained on the 9th term and tested on the 10th, a member's own previous half-year rate gives AUC 0.702. Gradient boosting adds about 0.008, which holds when members or roll calls are resampled. Knowing how the member's national colleagues voted on the same roll call gives 0.922, which describes collective defection rather than forecasting it ([notebook 03](pipeline/vote_explanation/notebooks/03_subjects_and_model.ipynb)).
+- **Explanatory models add little to a member's own record.** Trained on the 9th term and tested on the 10th, a member's own previous half-year rate gives AUC 0.702, and gradient boosting adds about 0.008, which holds when members or roll calls are resampled. Knowing how the member's national colleagues voted on the same roll call gives 0.922, which describes collective defection rather than forecasting it ([notebook 03](pipeline/vote_explanation/notebooks/03_subjects_and_model.ipynb)). The prediction step below tests this with forecasting models; its definitions differ, so the numbers aren't merged.
+
+### Predicting votes
+
+All prediction models know every group's realised line on the roll call (standing in for the voting lists, which aren't in the data), and predict which members break from their group's line without them. Trained on January 2020 to June 2023, tested on the 10th term (8.1% defections), with 95% intervals from resampling sitting days and members ([notebook 01](pipeline/vote_prediction/notebooks/01_model_comparison.ipynb)).
+
+- **Before a sitting day, fitted models add little to a member's own record.** With history only up to the previous sitting day, the member's own past defection rate gives AUC 0.718 and average precision 0.191. Logistic regression and gradient boosting give 0.734 and 0.730 (+0.015 and +0.011), and that gain is established only on roll calls where the member's group went against most other groups. No day-ahead model meaningfully beats the group line on accuracy (91.9%). A day-ahead GRU did worse than the own rate (0.698, one seed), a limit of its design rather than a finding about members.
+- **During a sitting, the previous roll calls predict the next.** With history up to the previous roll call, the own past rate gives 0.726, logistic regression 0.799 and boosting 0.802, which can't be told apart from logistic regression. A GRU over each member's sequence of positions gives 0.834 to 0.839 (three seeds), with average precision 0.415 to 0.425 against 0.332 for boosting, clearly on both kinds of roll call.
+  - Most of the gain over the own record comes from the same day's earlier positions: +0.072 AUC for boosting and +0.14 for the GRU. Roll calls on a sitting day are a median 14 seconds apart, and 89% follow one on the same text.
+  - Line accuracy rises only from 91.9% (group line) to 92.6%, because defections are rare.
+- **What national colleagues did on the same roll call** gives AUC 0.942 on its own. It's strongly associated with defection, as in the explanation step, but isn't known before the vote.
+- **Limits:** realised group lines, not voting lists; one test term with new groups; intervals exclude refit variation; a filter on near-tied groups removes 2.9% of test defections; other near-unanimous cutoffs not yet checked for prediction.
 
 ## How to read these
 
 - Only roll calls are recorded, and they are taken on request, so they are a selected sample of plenary votes. Show-of-hands votes are missing. All results describe voting behaviour on requested roll calls, not beliefs.
 - The two terms vote on different agendas and with different members (the 2024 election, members changing group, the UK leaving in 2020). A difference between terms isn't the same members changing their votes. Separating member replacement from change is an open question.
-- Results hold at near-unanimous cutoffs of 0%, 2.5% and 10% and with abstention counted against.
+- Clustering and explanation results hold at near-unanimous cutoffs of 0%, 2.5% and 10% and with abstention counted against. Prediction hasn't been checked at other cutoffs yet.
 - National party lines are revealed from votes, not recorded instructions. Voting with national colleagues may reflect instructions, shared views or both.
 - Defection here is measured against the group's most common position with the member included. The leave-one-out version used as the prediction baseline gives 9.0% and 8.4%.
 - The size-adjusted modularity used in the USA can't be compared across chambers with different numbers of groups, so the European Parliament isn't ranked against the USA on it.
@@ -47,4 +58,5 @@ Scope so far: plenary roll calls from July 2019 to October 2026 (the 9th term an
 |---|---|---|
 | [data_loading](pipeline/data_loading/docs/README.md) | Foundation done | Internally consistent, complete against the Open Data Portal, and matching it on a 200 roll-call sample |
 | [polarization_clustering](pipeline/polarization_clustering/docs/README.md) | Step 2 done | Cohesive groups along one ordering; the EPP closer to S&D and Renew in the 10th term, while the EPP with the groups to its right now holds enough votes to win when they combine |
-| [vote_explanation](pipeline/vote_explanation/docs/README.md) | Step 3 done | Members vote with united national colleagues over the group on about 96% of conflicts; defection is highest on the right and about half collective; hard to predict before the vote beyond a member's own record |
+| [vote_explanation](pipeline/vote_explanation/docs/README.md) | Step 3 done | Members vote with united national colleagues over the group on about 96% of conflicts; defection is highest on the right and about half collective; explanatory models add little to a member's own record |
+| [vote_prediction](pipeline/vote_prediction/docs/README.md) | Step 4 done | Before a sitting, models add little to a member's own rate (AUC 0.73 against 0.72); during it, a GRU reaches 0.84, mostly from the same day's earlier roll calls |

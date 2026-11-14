@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from features import add_history, build_rows, earlier_rollcall_rate, group_positions, prior_rate
+from features import add_day_history, add_history, build_rows, earlier_rollcall_rate, group_positions, prior_rate
 
 
 def votes_frame(rows):
@@ -56,6 +56,7 @@ def test_member_history_uses_earlier_rows_only():
     frame = pd.DataFrame({"member_id": [1] * 4, "timestamp": pd.date_range("2020", periods=4), "vote_id": [1, 2, 3, 4],
                           "defected": [True, False, True, False], "with_most_groups": True, "vote_part": "amendment",
                           "group_code": "EPP", "party_group": "EPP|1"})
+    frame["date"] = frame["timestamp"].dt.normalize()
     out = add_history(frame)
     assert np.isnan(out.loc[0, "prior_rate_all"])
     assert out["prior_rate_all"].tolist()[1:] == pytest.approx([1.0, 0.5, 2 / 3])
@@ -69,6 +70,28 @@ def test_group_history_excludes_colleagues_on_the_same_roll_call():
     rate = earlier_rollcall_rate(frame, ["group_code"], "value")
     assert rate.iloc[:2].isna().all()  # nothing earlier, and the colleague's vote on roll call 1 isn't used
     assert rate.iloc[2:].tolist() == [0.5, 0.5]
+
+
+def two_days(defected):
+    """Member 1 and 2 in the same group, two roll calls a day on two days."""
+    stamps = pd.to_datetime(["2020-01-01 10:00", "2020-01-01 10:01", "2020-01-02 10:00", "2020-01-02 10:01"])
+    frame = pd.DataFrame({"member_id": [1] * 4 + [2] * 4, "timestamp": list(stamps) * 2, "vote_id": [1, 2, 3, 4] * 2,
+                          "defected": defected, "with_most_groups": [True, False] * 4, "vote_part": "amendment",
+                          "group_code": "EPP", "party_group": ["EPP|1"] * 4 + ["EPP|2"] * 4})
+    frame["date"] = frame["timestamp"].dt.normalize()
+    return add_day_history(frame)
+
+
+def test_day_ahead_history_ignores_the_same_day():
+    out = two_days([True, False, True, True] + [False, False, True, False])
+    day = [c for c in out.columns if c.endswith("_day")]
+    assert out.loc[[0, 1, 4, 5], day].isna().all().all()  # nothing before the first day
+    assert out.loc[2:3, "prior_rate_all_day"].tolist() == [0.5, 0.5]  # day 1 only, not roll call 3
+    assert out.loc[2:3, "last_defected_day"].tolist() == [0.0, 0.0]  # last position of day 1
+    assert out.loc[2:3, "prior_rate_against_most_day"].tolist() == [0.0, 0.0]
+    assert out.loc[[2, 3, 6, 7], "group_recent_rate_200_day"].tolist() == [0.25] * 4  # both members, day 1
+    flipped = two_days([True, False, False, False] + [False, False, False, True])
+    assert out[day].equals(flipped[day])  # day 2 outcomes never enter day 2 features
 
 
 def test_prior_rate_window():

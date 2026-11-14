@@ -15,7 +15,7 @@ Type: predictive, using `run_model.py`, with notebooks for evaluation.
 - **Rows kept:**
   - roll calls that aren't near-unanimous (smaller side at least 2.5%). This share comes from the final vote, so it is information from after the vote, like the party positions. When the parties agree, the smaller side is mostly defectors, so those roll calls are kept only if enough members defected, and a member's own vote can decide whether a roll call at the threshold is kept;
   - Democrats and Republicans only. Independents are left out of both the rows and the party positions;
-  - a party is dropped for a roll call when its whole margin, including the member, is 0 or 1 vote. Deciding this without the member would keep or drop rows depending on the member's own vote.
+  - a party is dropped for a roll call when its whole margin, including the member, is 0 or 1 vote, so all its members are kept or dropped together. Given the other members' votes, this drops defectors and keeps loyal members where the others split by 1 or 2 votes (corrected 2026-11-13; the earlier wording said the reverse). A filter on the others' margin instead would keep only the minority side of every 1-vote split, all as defectors. Neither filter is clean in close parties; the share of votes affected is small.
 - **Member history:** one sequence per person, chamber and party, ordered by date and roll number. A party switch starts a new sequence. History starts in 1981, so members serving in 1991 have a record.
 - **Periods:** train on 1991 to 2010 (Congresses 102 to 111), choose the number of trees and GRU epochs on 2011 to 2014 (112 and 113), and test on 2015 to 2024 (114 to 118). Vote types exist from 1991.
 
@@ -41,7 +41,7 @@ Type: predictive, using `run_model.py`, with notebooks for evaluation.
 | 2026-11-05 | Leave the member out of their own party's position | Otherwise the member's vote helps define what they are compared with |
 | 2026-11-05 | Compute every history feature from earlier votes only, and feed the GRU only earlier outcomes | Tested in `test_features.py` and `test_sequence_model.py` |
 | 2026-11-05 | Use roll-call vote types, not topics | Topics stop in 2014; vote types cover 1991 on |
-| 2026-11-06 | Decide the close-split filter and split sizes on the whole party, including the member | The review found both depended on the member's own vote; fixed and every model refitted |
+| 2026-11-06 | Decide the close-split filter and split sizes on the whole party, including the member | The review found both depended on the member's own vote; fixed and every model refitted. Corrected 2026-11-13: the whole-party filter is the one that depends on the member's vote in close parties; kept, see "Rows kept" |
 | 2026-11-06 | Report single GRU seeds against gradient boosting, with a bootstrap over roll calls and members | An average of three seeds against one boosting model isn't like for like, and votes cluster by member as well as roll call |
 | 2026-11-06 | Compare the GRU's member states with previous-Congress Nokken-Poole | Same-Congress scores come from the same votes, so agreement with them is partly built in |
 | 2026-11-06 | No graph network or bill text yet | The GRU's gain over boosting is modest; see open questions |

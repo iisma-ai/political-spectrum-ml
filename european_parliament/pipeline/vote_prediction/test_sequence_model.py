@@ -35,3 +35,17 @@ def test_prediction_at_a_step_ignores_later_outcomes():
     after = predict(model, SequenceBatches(changed, np.ones(len(rows), bool), ["DEU"]))
     assert np.allclose(before[:6], after[:6])  # step 5's outcome first enters at step 6
     assert not np.allclose(before[6:], after[6:])
+
+
+def test_day_ahead_prediction_ignores_the_same_day():
+    rows = toy_rows(n_members=1, length=9)
+    rows["date"] = pd.to_datetime(["2020-01-01"] * 3 + ["2020-01-02"] * 3 + ["2020-01-03"] * 3)
+    torch.manual_seed(0)
+    data = SequenceBatches(rows, np.ones(len(rows), bool), ["DEU"], day_ahead=True)
+    model = DefectionGRU(data.inputs.shape[1], n_previous=data.previous.shape[1])
+    before = predict(model, data)
+    changed = rows.copy()
+    changed.loc[3:5, "defected"] = ~changed.loc[3:5, "defected"]  # day 2's outcomes
+    after = predict(model, SequenceBatches(changed, np.ones(len(rows), bool), ["DEU"], day_ahead=True))
+    assert np.allclose(before[:6], after[:6])  # day 2 itself never sees them
+    assert not np.allclose(before[6:], after[6:])  # day 3 does

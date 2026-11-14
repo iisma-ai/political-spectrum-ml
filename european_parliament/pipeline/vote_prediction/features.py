@@ -33,7 +33,7 @@ def group_positions(votes: pd.DataFrame, no_party_ids: set) -> pd.DataFrame:
     Columns added:
     - own_line: the group's most common position leaving the member out (0 For, 1 Against, 2 Abstention, -1 none);
     - own_full_margin: votes between the group's two most common positions with the member, the same for everyone in
-      the group on the roll call, so a filter on it doesn't depend on how this member voted;
+      the group on the roll call (see build_rows for what a filter on it selects);
     - others_same_share: the share of the other groups with a line whose line is the member's own_line;
     - group_seats, group_seat_share, party_seats: members listed (any position, including Did not vote);
     - after the vote only, for the labelled variant: own_cohesion (the group's largest position share with the member)
@@ -128,6 +128,59 @@ def earlier_rollcall_rate(frame: pd.DataFrame, keys: list, value: str, window: i
     return pd.Series(merged["rate"].to_numpy(), index=frame.index, dtype="float32")
 
 
+def day_ahead_rate(frame: pd.DataFrame, keys: list, value: str, mask=None, window: int | None = None,
+                   per_rollcall: bool = False) -> pd.Series:
+    """For each row, the mean of value over rows of the same group on earlier sitting days only.
+
+    The day-ahead counterpart of prior_rate (per_rollcall=False, window in rows) and earlier_rollcall_rate
+    (per_rollcall=True, window in roll calls): the state at the end of the last earlier day, so nothing from the
+    current day, including roll calls seconds earlier, is used. frame needs timestamp, vote_id and date.
+    """
+    rows = frame if mask is None else frame[mask]
+    if per_rollcall:
+        rows = rows.groupby(keys + ["vote_id"], sort=False).agg(
+            total=(value, "sum"), count=(value, "size"), timestamp=("timestamp", "first"),
+            date=("date", "first")).reset_index()
+    else:
+        rows = rows[keys + ["timestamp", "vote_id", "date", value]].rename(columns={value: "total"}).assign(count=1.0)
+    rows = rows.sort_values(keys + ["timestamp", "vote_id"], kind="stable").reset_index(drop=True)
+    grouped = rows.groupby(keys, sort=False)
+    total, count = grouped["total"].cumsum(), grouped["count"].cumsum()
+    if window is not None:
+        group_ids = grouped.ngroup()
+        total = total - total.groupby(group_ids).shift(window).fillna(0)
+        count = count - count.groupby(group_ids).shift(window).fillna(0)
+    rows["rate"] = total / count
+    state = rows.groupby(keys + ["date"], sort=False)["rate"].last().reset_index().sort_values("date", kind="stable")
+    left = frame[keys + ["date"]].reset_index().sort_values("date", kind="stable")
+    merged = pd.merge_asof(left, state, on="date", by=keys, allow_exact_matches=False)
+    return pd.Series(merged["rate"].to_numpy(), index=merged["index"].to_numpy()).reindex(frame.index).astype("float32")
+
+
+def add_day_history(frame: pd.DataFrame) -> pd.DataFrame:
+    """Add day-ahead versions (suffix _day) of the history features: only earlier sitting days count, as if every
+    prediction for a day were made before the sitting started."""
+    frame = frame.copy()
+    value = frame["defected"].astype("float32").rename("defected_f")
+    frame["defected_f"] = value
+    with_most = frame["with_most_groups"].astype(bool)
+    member = SEQUENCE_KEYS
+    specs = {
+        "prior_rate_all": dict(keys=member),
+        "prior_rate_with_most": dict(keys=member, mask=with_most),
+        "prior_rate_against_most": dict(keys=member, mask=~with_most),
+        "recent_rate_all_100": dict(keys=member, window=100),
+        "recent_rate_against_most_50": dict(keys=member, mask=~with_most, window=50),
+        "prior_rate_same_part": dict(keys=member + ["vote_part"]),
+        "last_defected": dict(keys=member, window=1),
+        "party_recent_rate_200": dict(keys=["party_group"], window=200, per_rollcall=True),
+        "group_recent_rate_200": dict(keys=["group_code"], window=200, per_rollcall=True),
+    }
+    for name, spec in specs.items():
+        frame[f"{name}_day"] = day_ahead_rate(frame, value="defected_f", **spec)
+    return frame.drop(columns="defected_f")
+
+
 def add_history(frame: pd.DataFrame) -> pd.DataFrame:
     """Add history features from earlier roll calls: the member's own, their national party's and their group's."""
     frame = frame.sort_values(SEQUENCE_KEYS + ORDER, kind="stable").reset_index(drop=True)
@@ -151,7 +204,7 @@ def add_history(frame: pd.DataFrame) -> pd.DataFrame:
                "group_recent_rate_200"]
     for column in history:
         frame[column] = frame[column].astype("float32")
-    return frame.drop(columns="defected_f")
+    return add_day_history(frame.drop(columns="defected_f"))
 
 
 def build_rows(votes: pd.DataFrame, rollcalls: pd.DataFrame, members: pd.DataFrame, committees: pd.Series,
@@ -160,8 +213,9 @@ def build_rows(votes: pd.DataFrame, rollcalls: pd.DataFrame, members: pd.DataFra
 
     Keeps group members' active positions (non-attached members excluded) on roll calls that aren't near-unanimous,
     where the group has a line without the member. A group is dropped for a roll call when its two most common
-    positions, with the member, are 0 or 1 vote apart: deciding this without the member would keep or drop rows
-    depending on how the member voted.
+    positions, with the member, are 0 or 1 vote apart, so all its members are kept or dropped together. Given the
+    other members' votes, this drops defectors and keeps loyal members in groups whose others split by 1 or 2 votes; a
+    filter on the others' margin instead would keep only the minority side of every 1-vote split, all as defectors.
     """
     rollcalls = rollcalls[~rollcalls["is_secret"]]
     keep = rollcalls.loc[rollcalls["minority_share"] >= min_minority_share, "vote_id"]

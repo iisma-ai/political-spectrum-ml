@@ -7,7 +7,7 @@ Same steps as the [USA](../../usa/docs/README.md#roadmap), with the same problem
 1. **Foundation (done 2026-11-12):** download HowTheyVote.eu, build the member-by-vote tables, and check them against the official Open Data Portal.
 2. **Clustering (done 2026-11-13):** cohesion by political group, coalitions between groups, member agreement networks and maps per term ([decisions](../pipeline/polarization_clustering/docs/README.md)).
 3. **Explanation (done 2026-11-13, [decisions](../pipeline/vote_explanation/docs/README.md)):** defection from the political group and from the national party, by subject, country and group.
-4. **Prediction (next):** the same ladder as the USA (group line, own past rate, logistic regression, gradient boosting, GRU).
+4. **Prediction (done 2026-11-13, [decisions](../pipeline/vote_prediction/docs/README.md)):** the same ladder as the USA (group line, own past rate, logistic regression, gradient boosting, GRU), one roll call ahead and day-ahead.
 
 ## Most important decisions
 
